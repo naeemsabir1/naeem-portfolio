@@ -427,7 +427,7 @@ function WebsiteCard({ project }: { project: Project }) {
                         />
                     )}
                     
-                    {(!useIframe || iframeState === "failed") && (
+                    {!useIframe && (
                         <Image src={project.imageUrl} alt={project.name} fill sizes="(max-width: 768px) 100vw, 33vw" style={{ objectFit: "cover", objectPosition: "top left" }} />
                     )}
                 </div>

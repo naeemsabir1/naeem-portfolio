@@ -408,10 +408,10 @@ function MagneticTypography() {
     );
 }
 
-function MagneticLetter({ char, containerMouseX, containerMouseY, containerRef }: { char: string, containerMouseX: number, containerMouseY: number, containerRef: React.RefObject<HTMLDivElement> }) {
+function MagneticLetter({ char, containerMouseX, containerMouseY, containerRef }: { char: string, containerMouseX: number, containerMouseY: number, containerRef: React.RefObject<HTMLDivElement | null> }) {
     const letterRef = useRef<HTMLSpanElement>(null);
     const [transform, setTransform] = useState({ x: 0, y: 0, color: "#1d1d1f" });
-    const frameRef = useRef<number>();
+    const frameRef = useRef<number>(0);
     const currentTx = useRef({ x: 0, y: 0 });
 
     useEffect(() => {

@@ -21,6 +21,7 @@ export const aboutData = {
   name: "Naeem Sabir",
   title: "Full-Stack & AI Developer",
   location: "Lahore, Pakistan",
+  githubUrl: "https://github.com/naeemsabir1",
   university: "University of Management & Technology (UMT)",
   bio: "A Full-Stack & AI Developer based in Lahore, pursuing Computer Science at UMT. I build resilient digital ecosystems and AI-powered apps, leveraging agentic models to supercharge creative output.",
   bioExtended:
