@@ -342,7 +342,7 @@ export default function HeroScrollSequence() {
           Naeem Sabir
         </a>
         <div style={{ display: "flex", alignItems: "center", gap: "36px" }}>
-          {["Websites", "Apps", "About"].map((item) => (
+          {["Websites", "Apps"].map((item) => (
             <a
               key={item}
               href={`#${item.toLowerCase()}`}
@@ -362,6 +362,26 @@ export default function HeroScrollSequence() {
               {item}
             </a>
           ))}
+          <a href="#about" onClick={(e) => {
+            e.preventDefault();
+            const aboutSection = document.getElementById('about');
+            if (aboutSection) {
+              aboutSection.scrollIntoView({ behavior: 'smooth' });
+            }
+          }} style={{
+            fontSize: "14px",
+            fontWeight: 400,
+            color: "rgba(255,255,255,0.85)",
+            textDecoration: "none",
+            letterSpacing: "0.01em",
+            transition: "color 0.3s ease",
+            fontFamily: "'SF Pro Text', -apple-system, sans-serif",
+            textShadow: "0 1px 6px rgba(0,0,0,0.35)",
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = "#fff")}
+          onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.85)")}>
+            About
+          </a>
           <Link
             href="/quote"
             style={{

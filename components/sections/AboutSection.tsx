@@ -66,6 +66,7 @@ export default function AboutSection() {
   return (
     <section
       ref={sectionRef}
+      id="about"
       className="about-section"
       style={{
         backgroundColor: "#fafafa",
