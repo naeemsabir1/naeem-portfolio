@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import Link from "next/link";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -361,8 +362,8 @@ export default function HeroScrollSequence() {
               {item}
             </a>
           ))}
-          <a
-            href="#quote"
+          <Link
+            href="/quote"
             style={{
               fontSize: "14px",
               fontWeight: 500,
@@ -385,7 +386,7 @@ export default function HeroScrollSequence() {
             }}
           >
             Get Quote
-          </a>
+          </Link>
         </div>
       </nav>
 

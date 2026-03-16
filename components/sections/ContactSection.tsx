@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { aboutData } from "@/data/content";
+import Link from "next/link";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -196,8 +197,8 @@ export default function ContactSection() {
 
                 {/* Primary CTA */}
                 <div className="primary-cta" style={{ width: "100%", display: "flex", justifyContent: "center", marginBottom: "32px" }}>
-                    <a 
-                        href="mailto:contact@naeemsabir.com?subject=Project%20Quote%20Request"
+                    <Link 
+                        href="/quote"
                         className="cta-primary banner-cta"
                         style={{
                             display: "flex", justifyContent: "center", alignItems: "center", gap: "12px",
@@ -213,27 +214,27 @@ export default function ContactSection() {
                             <line x1="5" y1="12" x2="19" y2="12" />
                             <polyline points="12 5 19 12 12 19" />
                         </svg>
-                    </a>
+                    </Link>
                 </div>
 
                 {/* Secondary Row */}
                 <div className="secondary-fade" style={{ display: "flex", gap: "16px", flexWrap: "wrap", justifyContent: "center", width: "100%", marginBottom: "40px" }}>
-                    <a 
-                        href="mailto:contact@naeemsabir.com" 
+                    <button
+                        onClick={() => window.dispatchEvent(new Event("openChat"))}
                         style={{
                             padding: "14px 32px", backgroundColor: "#1d1d1f", color: "#fff",
-                            borderRadius: "12px", textDecoration: "none", fontWeight: 600, fontSize: "16px",
-                            display: "inline-flex", alignItems: "center", gap: "10px", transition: "all 0.2s"
+                            borderRadius: "12px", border: "none", fontWeight: 600, fontSize: "16px",
+                            display: "inline-flex", alignItems: "center", gap: "10px", transition: "all 0.2s",
+                            cursor: "pointer", fontFamily: "inherit"
                         }}
                         onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.02)"}
                         onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
                     >
-                        Start a Chat 
+                        Start a Conversation
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <line x1="5" y1="12" x2="19" y2="12" />
-                            <polyline points="12 5 19 12 12 19" />
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                         </svg>
-                    </a>
+                    </button>
                     
                     <a 
                         href={aboutData.githubUrl || "https://github.com/naeemsabir1"} 
@@ -257,7 +258,7 @@ export default function ContactSection() {
 
                 <div className="secondary-fade" style={{ marginBottom: "64px" }}>
                     <a 
-                        href="mailto:contact@naeemsabir.com"
+                        href="mailto:naeemsabir002@gmail.com"
                         className="email-link-light"
                         style={{
                             color: "#86868b",
@@ -267,7 +268,7 @@ export default function ContactSection() {
                             transition: "color 0.2s ease"
                         }}
                     >
-                        contact@naeemsabir.com
+                        naeemsabir002@gmail.com
                     </a>
                 </div>
 
