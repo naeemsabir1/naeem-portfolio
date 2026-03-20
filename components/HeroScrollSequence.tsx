@@ -13,8 +13,8 @@ gsap.registerPlugin(ScrollTrigger);
 // ============================================================
 const FRAME_COUNT = 300;
 const FRAME_PATH = "/Frames/frame_";
-const FRAME_EXT = ".jpg";
-const SCROLL_LENGTH_VH = 7; // 7× viewport height of scroll distance (matches Adaline)
+const FRAME_EXT = ".webp";
+const SCROLL_LENGTH_VH = 5; // 5× viewport height of scroll distance
 const PROJECTS = [
   "Talkio",
   "Sands Collections",
@@ -138,7 +138,7 @@ export default function HeroScrollSequence() {
       end: `+=${window.innerHeight * SCROLL_LENGTH_VH}px`,
       pin: true,
       pinSpacing: true,
-      scrub: 1,
+      scrub: 0.8,
       onUpdate: (self) => {
         const progress = self.progress;
 
@@ -503,7 +503,7 @@ export default function HeroScrollSequence() {
                 marginTop: "24px",
                 fontSize: "clamp(14px, 1.6vw, 18px)",
                 fontWeight: 400,
-                color: "rgba(255,255,255,0.6)",
+                color: "#fff",
                 lineHeight: 1.6,
                 maxWidth: "480px",
                 fontFamily: "'SF Pro Text', -apple-system, sans-serif",
