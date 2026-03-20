@@ -298,10 +298,12 @@ export default function ChatWidget() {
         {/* MESSAGES AREA */}
         <div
           className="chat-messages"
+          data-lenis-prevent="true"
           style={{
             flex: 1,
             overflowY: "auto",
             overflowX: "hidden",
+            overscrollBehavior: "contain",
             padding: "16px",
             display: "flex",
             flexDirection: "column",
