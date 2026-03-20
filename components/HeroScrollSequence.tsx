@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import Link from "next/link";
+import Image from "next/image";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -43,25 +44,46 @@ export default function HeroScrollSequence() {
   const [loadProgress, setLoadProgress] = useState(0);
 
   // --------------------------------------------------------
-  //  1. PRELOAD ALL 300 FRAMES
+  //  1. PRELOAD FRAMES IN BATCHES (30 at a time)
   // --------------------------------------------------------
   useEffect(() => {
     let loaded = 0;
     const imgs: HTMLImageElement[] = new Array(FRAME_COUNT);
+    const BATCH_SIZE = 30;
+    let cancelled = false;
 
-    for (let i = 0; i < FRAME_COUNT; i++) {
-      const img = new Image();
-      img.src = `${FRAME_PATH}${String(i + 1).padStart(4, "0")}${FRAME_EXT}`;
-      img.onload = img.onerror = () => {
-        loaded++;
-        setLoadProgress(Math.round((loaded / FRAME_COUNT) * 100));
-        if (loaded === FRAME_COUNT) {
-          imagesRef.current = imgs;
-          setIsLoaded(true);
+    const loadFrame = (i: number): Promise<void> => {
+      return new Promise((resolve) => {
+        const img = new window.Image();
+        img.src = `${FRAME_PATH}${String(i + 1).padStart(4, "0")}${FRAME_EXT}`;
+        img.onload = img.onerror = () => {
+          if (cancelled) return;
+          imgs[i] = img;
+          loaded++;
+          setLoadProgress(Math.round((loaded / FRAME_COUNT) * 100));
+          resolve();
+        };
+      });
+    };
+
+    const loadAllBatches = async () => {
+      for (let start = 0; start < FRAME_COUNT; start += BATCH_SIZE) {
+        if (cancelled) return;
+        const end = Math.min(start + BATCH_SIZE, FRAME_COUNT);
+        const batch: Promise<void>[] = [];
+        for (let i = start; i < end; i++) {
+          batch.push(loadFrame(i));
         }
-      };
-      imgs[i] = img;
-    }
+        await Promise.all(batch);
+      }
+      if (!cancelled) {
+        imagesRef.current = imgs;
+        setIsLoaded(true);
+      }
+    };
+
+    loadAllBatches();
+    return () => { cancelled = true; };
   }, []);
 
   // --------------------------------------------------------
@@ -101,7 +123,36 @@ export default function HeroScrollSequence() {
   }, []);
 
   // --------------------------------------------------------
-  //  3. SINGLE SCROLLTRIGGER — CONTROLS EVERYTHING
+  //  3. SMOOTH FADE-OUT OF LOADING SCREEN
+  // --------------------------------------------------------
+  const loaderRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isLoaded || !loaderRef.current) return;
+
+    // Render the first frame before fading out the loader
+    render(0);
+
+    // Small delay to ensure the canvas has actually painted
+    const timer = setTimeout(() => {
+      gsap.to(loaderRef.current, {
+        opacity: 0,
+        duration: 0.6,
+        ease: "power2.inOut",
+        onComplete: () => {
+          if (loaderRef.current) {
+            loaderRef.current.style.pointerEvents = "none";
+            loaderRef.current.style.display = "none";
+          }
+        },
+      });
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [isLoaded, render]);
+
+  // --------------------------------------------------------
+  //  4. SINGLE SCROLLTRIGGER — CONTROLS EVERYTHING
   // --------------------------------------------------------
   useEffect(() => {
     if (!isLoaded || !heroRef.current) return;
@@ -250,64 +301,64 @@ export default function HeroScrollSequence() {
   // --------------------------------------------------------
   return (
     <>
-      {/* ===== LOADING SCREEN ===== */}
-      {!isLoaded && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 60,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "#000",
-          }}
-        >
-          <div style={{ textAlign: "center" }}>
+      {/* ===== LOADING SCREEN (always rendered, fades out) ===== */}
+      <div
+        ref={loaderRef}
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 60,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "#000",
+          opacity: 1,
+        }}
+      >
+        <div style={{ textAlign: "center" }}>
+          <div
+            style={{
+              color: "#fff",
+              fontSize: "16px",
+              fontWeight: 300,
+              letterSpacing: "0.05em",
+              marginBottom: "20px",
+              fontFamily: "'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif",
+            }}
+          >
+            Loading Experience
+          </div>
+          <div
+            style={{
+              width: "200px",
+              height: "2px",
+              background: "rgba(255,255,255,0.15)",
+              borderRadius: "2px",
+              overflow: "hidden",
+            }}
+          >
             <div
               style={{
-                color: "#fff",
-                fontSize: "16px",
-                fontWeight: 300,
-                letterSpacing: "0.05em",
-                marginBottom: "20px",
-                fontFamily: "'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif",
-              }}
-            >
-              Loading Experience
-            </div>
-            <div
-              style={{
-                width: "200px",
-                height: "2px",
-                background: "rgba(255,255,255,0.15)",
+                height: "100%",
+                background: "#fff",
                 borderRadius: "2px",
-                overflow: "hidden",
+                transition: "width 0.3s ease",
+                width: `${loadProgress}%`,
               }}
-            >
-              <div
-                style={{
-                  height: "100%",
-                  background: "#fff",
-                  borderRadius: "2px",
-                  transition: "width 0.3s ease",
-                  width: `${loadProgress}%`,
-                }}
-              />
-            </div>
-            <div
-              style={{
-                color: "rgba(255,255,255,0.4)",
-                fontSize: "13px",
-                marginTop: "12px",
-                fontFamily: "'SF Pro Text', -apple-system, sans-serif",
-              }}
-            >
-              {loadProgress}%
-            </div>
+            />
+          </div>
+          <div
+            style={{
+              color: "rgba(255,255,255,0.4)",
+              fontSize: "13px",
+              marginTop: "12px",
+              fontFamily: "'SF Pro Text', -apple-system, sans-serif",
+            }}
+          >
+            {loadProgress}%
           </div>
         </div>
-      )}
+      </div>
 
       {/* ===== NAVBAR (fixed, z-index 50) ===== */}
       <nav
@@ -656,9 +707,12 @@ export default function HeroScrollSequence() {
                 padding: "6px",
               }}
             >
-              <img
-                src="/Dashboard.png"
+              <Image
+                src="/Dashboard.webp"
                 alt="Dashboard Preview"
+                width={820}
+                height={512}
+                priority={false}
                 style={{
                   width: "100%",
                   height: "auto",

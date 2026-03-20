@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { aboutData } from "@/data/content";
+import Image from "next/image";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -141,9 +142,12 @@ export default function AboutSection() {
                 boxShadow: "0 4px 16px rgba(0,0,0,0.06), 0 20px 60px rgba(0,0,0,0.08)",
                 backgroundColor: "#f5f5f7", /* fallback */
             }}>
-                <img 
-                    src="/my-image.png" 
-                    alt="Naeem Sabir" 
+                <Image 
+                    src="/my-image.webp" 
+                    alt="Naeem Sabir"
+                    width={360}
+                    height={440}
+                    priority
                     style={{
                         width: "100%",
                         height: "100%",

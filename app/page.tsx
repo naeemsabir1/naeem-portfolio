@@ -1,10 +1,18 @@
+import dynamic from "next/dynamic";
 import HeroScrollSequence from "@/components/HeroScrollSequence";
 import HeroDivider from "@/components/sections/HeroDivider";
 import AboutSection from "@/components/sections/AboutSection";
 import StackSection from "@/components/sections/StackSection";
-import WorkSection from "@/components/sections/WorkSection";
-import PlaygroundSection from "@/components/sections/PlaygroundSection";
-import ContactSection from "@/components/sections/ContactSection";
+
+const WorkSection = dynamic(
+  () => import("@/components/sections/WorkSection")
+);
+const PlaygroundSection = dynamic(
+  () => import("@/components/sections/PlaygroundSection")
+);
+const ContactSection = dynamic(
+  () => import("@/components/sections/ContactSection")
+);
 
 export default function Home() {
   return (

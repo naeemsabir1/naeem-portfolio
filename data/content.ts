@@ -103,7 +103,7 @@ Key decisions included implementing a headless commerce approach with Shopify as
     color: "#C4A265",
     liveUrl: "https://sands-collections-ns.netlify.app/",
     githubUrl: "https://github.com/naeemsabir1/E-commerce",
-    imageUrl: "/Sands Collections.png",
+    imageUrl: "/Sands Collections.webp",
   },
   {
     id: "mmvapers",
@@ -121,7 +121,7 @@ Performance was critical — with hundreds of product images, I implemented prog
     color: "#6366F1",
     liveUrl: "http://moussenmelts.com/",
     githubUrl: "https://github.com/naeemsabir1",
-    imageUrl: "/MM Vapers.png",
+    imageUrl: "/MM Vapers.webp",
   },
   {
     id: "sopwriter",
@@ -139,7 +139,7 @@ User authentication is handled via NextAuth with Google and email providers. The
     color: "#0EA5E9",
     liveUrl: "https://sopwriter.pk/",
     githubUrl: "https://github.com/naeemsabir1/SopWriter",
-    imageUrl: "/sop writer.png",
+    imageUrl: "/sop writer.webp",
   },
   {
     id: "mousse",
@@ -157,7 +157,7 @@ A standout feature is the "Build Your Box" customizer where customers can assemb
     color: "#D97706",
     liveUrl: "http://moussenmelts.com/",
     githubUrl: "https://github.com/naeemsabir1",
-    imageUrl: "/moussenmelts.png",
+    imageUrl: "/moussenmelts.webp",
   },
   {
     id: "creatube",
@@ -185,7 +185,7 @@ Scaling was the biggest challenge — rendering is GPU-intensive, so I implement
     color: "#EC4899",
     liveUrl: "https://creatube.ai/",
     githubUrl: "https://github.com/naeemsabir1",
-    imageUrl: "/creatubeai.png",
+    imageUrl: "/creatubeai.webp",
   },
 ];
 
