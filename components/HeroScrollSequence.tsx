@@ -11,9 +11,9 @@ gsap.registerPlugin(ScrollTrigger);
 // ============================================================
 //  CONFIG
 // ============================================================
-const FRAME_COUNT = 150;
+const FRAME_COUNT = 300;
 const FRAME_PATH = "/Frames/frame_";
-const FRAME_EXT = ".webp";
+const FRAME_EXT = ".jpg";
 const SCROLL_LENGTH_VH = 7; // 7× viewport height of scroll distance (matches Adaline)
 const PROJECTS = [
   "Talkio",
@@ -43,59 +43,25 @@ export default function HeroScrollSequence() {
   const [loadProgress, setLoadProgress] = useState(0);
 
   // --------------------------------------------------------
-  //  1. PRELOAD ALL FRAMES (PROGRESSIVE)
+  //  1. PRELOAD ALL 300 FRAMES
   // --------------------------------------------------------
   useEffect(() => {
+    let loaded = 0;
     const imgs: HTMLImageElement[] = new Array(FRAME_COUNT);
-    let totalLoaded = 0;
 
-    // 7 evenly spaced keyframes for instant display
-    const criticalIndices: number[] = [];
-    for (let i = 0; i < 7; i++) {
-      criticalIndices.push(Math.round((i / 6) * (FRAME_COUNT - 1)));
-    }
-    let criticalLoaded = 0;
-
-    const loadFrame = (index: number): Promise<void> => {
-      return new Promise((resolve) => {
-        const img = new Image();
-        img.src = `${FRAME_PATH}${String(index + 1).padStart(4, "0")}${FRAME_EXT}`;
-        img.onload = img.onerror = () => {
-          imgs[index] = img;
-          totalLoaded++;
-          setLoadProgress(Math.round((totalLoaded / FRAME_COUNT) * 100));
-
-          if (criticalIndices.includes(index)) {
-            criticalLoaded++;
-            if (criticalLoaded === criticalIndices.length) {
-              imagesRef.current = imgs;
-              setIsLoaded(true);
-            }
-          }
-          resolve();
-        };
-      });
-    };
-
-    // Phase 1: Load critical keyframes (~7 images, very fast)
-    Promise.all(criticalIndices.map((i) => loadFrame(i))).then(() => {
-      // Phase 2: Load remaining frames in background batches
-      const remaining: number[] = [];
-      for (let i = 0; i < FRAME_COUNT; i++) {
-        if (!criticalIndices.includes(i)) remaining.push(i);
-      }
-      
-      const loadBatch = async (startIdx: number) => {
-        const batch = remaining.slice(startIdx, startIdx + 10);
-        if (batch.length === 0) return;
-        await Promise.all(batch.map((i) => loadFrame(i)));
-        // Small delay between batches to not hog bandwidth
-        await new Promise((r) => setTimeout(r, 50));
-        await loadBatch(startIdx + 10);
+    for (let i = 0; i < FRAME_COUNT; i++) {
+      const img = new Image();
+      img.src = `${FRAME_PATH}${String(i + 1).padStart(4, "0")}${FRAME_EXT}`;
+      img.onload = img.onerror = () => {
+        loaded++;
+        setLoadProgress(Math.round((loaded / FRAME_COUNT) * 100));
+        if (loaded === FRAME_COUNT) {
+          imagesRef.current = imgs;
+          setIsLoaded(true);
+        }
       };
-      
-      loadBatch(0);
-    });
+      imgs[i] = img;
+    }
   }, []);
 
   // --------------------------------------------------------
@@ -107,24 +73,7 @@ export default function HeroScrollSequence() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    let img = imagesRef.current[frameIndex];
-
-    // If this frame hasn't loaded yet, find nearest loaded frame
-    if (!img || !img.complete || !img.naturalWidth) {
-      // Search backward
-      for (let i = frameIndex - 1; i >= 0; i--) {
-        const fb = imagesRef.current[i];
-        if (fb && fb.complete && fb.naturalWidth) { img = fb; break; }
-      }
-      // If nothing backward, search forward
-      if (!img || !img.complete || !img.naturalWidth) {
-        for (let i = frameIndex + 1; i < FRAME_COUNT; i++) {
-          const fb = imagesRef.current[i];
-          if (fb && fb.complete && fb.naturalWidth) { img = fb; break; }
-        }
-      }
-    }
-
+    const img = imagesRef.current[frameIndex];
     if (!img || !img.complete || !img.naturalWidth) return;
 
     const dpr = window.devicePixelRatio || 1;
