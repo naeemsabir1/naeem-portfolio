@@ -468,7 +468,7 @@ function MagneticLetter({ char, containerMouseX, containerMouseY, containerRef }
                 fontSize: "clamp(48px, 6vw, 72px)",
                 fontWeight: 800,
                 color: transform.color,
-                fontFamily: "'SF Pro Display', -apple-system, sans-serif",
+                fontFamily: "var(--font-display), sans-serif",
                 transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
                 willChange: "transform",
                 pointerEvents: "none",
@@ -533,7 +533,7 @@ export default function PlaygroundSection() {
                 backgroundColor: "#f7f7f8",
                 padding: "160px 0",
                 width: "100%",
-                fontFamily: "'SF Pro Text', Inter, sans-serif",
+                fontFamily: "var(--font-inter), Inter, sans-serif",
                 position: "relative",
                 overflow: "hidden"
             }}
@@ -550,9 +550,9 @@ export default function PlaygroundSection() {
                     
                     <h2 
                         style={{
-                            fontSize: "clamp(32px, 4vw, 56px)", fontWeight: 700,
-                            lineHeight: 1.1, letterSpacing: "-0.03em", color: "#1d1d1f",
-                            fontFamily: "'SF Pro Display', -apple-system, sans-serif", margin: "0 0 24px 0"
+                            fontSize: "clamp(34px, 4.2vw, 58px)", fontWeight: 800,
+                            lineHeight: 1.06, letterSpacing: "-0.04em", color: "#0f172a",
+                            fontFamily: "var(--font-display), sans-serif", margin: "0 0 24px 0"
                         }}
                     >
                         Because good software<br />should feel alive.
@@ -579,7 +579,7 @@ export default function PlaygroundSection() {
                     <div style={cardStyle}>
                         <GravityGarden />
                         <div style={labelStyle}>
-                            <h3 style={{ fontSize: "18px", fontWeight: 700, color: "#1d1d1f", margin: 0, fontFamily: "'SF Pro Display', sans-serif" }}>
+                            <h3 style={{ fontSize: "18px", fontWeight: 700, color: "#0f172a", margin: 0, fontFamily: "var(--font-display), sans-serif", letterSpacing: "-0.02em" }}>
                                 Gravity Garden
                             </h3>
                             <p style={{ fontSize: "14px", color: "#86868b", marginTop: "4px", margin: "4px 0 0 0" }}>
@@ -592,7 +592,7 @@ export default function PlaygroundSection() {
                     <div style={cardStyle}>
                         <ParticlePainter />
                         <div style={labelStyle}>
-                            <h3 style={{ fontSize: "18px", fontWeight: 700, color: "#1d1d1f", margin: 0, fontFamily: "'SF Pro Display', sans-serif" }}>
+                            <h3 style={{ fontSize: "18px", fontWeight: 700, color: "#0f172a", margin: 0, fontFamily: "var(--font-display), sans-serif", letterSpacing: "-0.02em" }}>
                                 Particle Painter
                             </h3>
                             <p style={{ fontSize: "14px", color: "#86868b", marginTop: "4px", margin: "4px 0 0 0" }}>
@@ -605,7 +605,7 @@ export default function PlaygroundSection() {
                     <div style={cardStyle}>
                         <MagneticTypography />
                         <div style={labelStyle}>
-                            <h3 style={{ fontSize: "18px", fontWeight: 700, color: "#1d1d1f", margin: 0, fontFamily: "'SF Pro Display', sans-serif" }}>
+                            <h3 style={{ fontSize: "18px", fontWeight: 700, color: "#0f172a", margin: 0, fontFamily: "var(--font-display), sans-serif", letterSpacing: "-0.02em" }}>
                                 Magnetic Type
                             </h3>
                             <p style={{ fontSize: "14px", color: "#86868b", marginTop: "4px", margin: "4px 0 0 0" }}>

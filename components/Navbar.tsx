@@ -1,73 +1,211 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import PresenceChip from "@/components/hero/PresenceChip";
+import AudioToggle from "@/components/hero/AudioToggle";
+import { sounds } from "@/lib/audio";
 
-const navLinks = [
-  { href: "/", label: "Home" },
+const LINKS = [
+  { id: "about", label: "About" },
+  { id: "work",  label: "Work"  },
+  { id: "stack", label: "Stack" },
 ];
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
-  const pathname = usePathname();
+  const [overDark, setOverDark] = useState(true);
+  const [progress, setProgress] = useState(0);
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const linkRefs = useRef<Array<HTMLAnchorElement | null>>([]);
+  const [pill, setPill] = useState<{ x: number; w: number } | null>(null);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 100);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    const fn = () => {
+      const y = window.scrollY;
+      const max = (document.documentElement.scrollHeight - window.innerHeight) || 1;
+      setScrolled(y > 80);
+      setOverDark(y < window.innerHeight * 0.7);
+      setProgress(Math.min(1, Math.max(0, y / max)));
+    };
+    fn();
+    window.addEventListener("scroll", fn, { passive: true });
+    return () => window.removeEventListener("scroll", fn);
   }, []);
+
+  useEffect(() => {
+    if (hoverIdx === null) { setPill(null); return; }
+    const el = linkRefs.current[hoverIdx];
+    const parent = el?.parentElement;
+    if (!el || !parent) { setPill(null); return; }
+    const er = el.getBoundingClientRect();
+    const pr = parent.getBoundingClientRect();
+    setPill({ x: er.left - pr.left, w: er.width });
+  }, [hoverIdx]);
+
+  const scrollTo = (id: string) => (e: React.MouseEvent) => {
+    e.preventDefault();
+    sounds.click();
+    if (id === "__top") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } else {
+      document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
+  const dark = overDark && !scrolled;
 
   return (
     <motion.nav
       initial={{ y: -20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      transition={{ duration: 0.6, delay: 0.3 }}
-      className={`fixed top-6 left-1/2 -translate-x-1/2 z-50 transition-all duration-500 ${
-        scrolled
-          ? "bg-white/70 backdrop-blur-2xl shadow-[0_2px_20px_rgba(0,0,0,0.08)] border border-gray-200/50"
-          : "bg-white/10 backdrop-blur-xl border border-white/20"
-      } rounded-full px-2 py-1.5`}
+      transition={{ duration: 0.6, delay: 0.25 }}
+      style={{
+        position: "fixed", top: "20px", left: "50%",
+        transform: "translateX(-50%)", zIndex: 50,
+        background: dark
+          ? "rgba(15,17,23,0.55)"
+          : scrolled ? "rgba(255,255,255,0.82)" : "rgba(255,255,255,0.30)",
+        backdropFilter: "blur(24px) saturate(180%)",
+        WebkitBackdropFilter: "blur(24px) saturate(180%)",
+        border: dark ? "1px solid rgba(255,255,255,0.10)" : "1px solid rgba(0,0,0,0.08)",
+        borderRadius: "100px",
+        padding: "6px 8px",
+        boxShadow: scrolled
+          ? "0 8px 30px rgba(0,0,0,0.10)"
+          : dark ? "0 8px 40px rgba(0,0,0,0.35)" : "0 4px 20px rgba(0,0,0,0.04)",
+        transition: "background 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease",
+        overflow: "hidden",
+      }}
     >
-      <div className="flex items-center gap-1">
-        {navLinks.map((link) => {
-          const isActive = pathname === link.href;
-          return (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="relative px-5 py-2 rounded-full text-sm font-medium transition-all duration-300"
+      {/* Scroll-progress hairline */}
+      <div
+        aria-hidden
+        style={{
+          position: "absolute", top: 0, left: 0, right: 0, height: 1.5,
+          transformOrigin: "left center",
+          transform: `scaleX(${progress})`,
+          background: "linear-gradient(90deg, #52b788, #38bdf8)",
+          opacity: progress > 0.01 ? 1 : 0,
+          transition: "transform 0.12s linear, opacity 0.3s ease",
+          pointerEvents: "none",
+        }}
+      />
+
+      <div style={{ display: "flex", alignItems: "center", gap: 4, position: "relative" }}>
+        {/* Logo */}
+        <a
+          href="#"
+          data-cursor="click"
+          onClick={scrollTo("__top")}
+          onMouseEnter={() => sounds.hover()}
+          style={{
+            padding: "8px 16px", borderRadius: "100px",
+            fontSize: "15px", fontWeight: 700,
+            color: dark ? "#ffffff" : "#0f172a",
+            textDecoration: "none",
+            fontFamily: "var(--font-display), sans-serif",
+            letterSpacing: "-0.025em",
+            transition: "color 0.4s ease",
+            display: "inline-flex", alignItems: "baseline", gap: 1,
+          }}
+        >
+          <span className="nav-logo-n" style={{ display: "inline-block", transition: "transform 0.5s cubic-bezier(0.16,1,0.3,1)" }}>N</span>
+          <span>aeem</span>
+        </a>
+
+        <div style={{
+          width: 1, height: 16, margin: "0 4px",
+          background: dark ? "rgba(255,255,255,0.18)" : "rgba(0,0,0,0.10)",
+          transition: "background 0.4s ease",
+        }} />
+
+        {/* Links wrapper with magnetic pill */}
+        <div style={{ position: "relative", display: "flex", alignItems: "center" }}
+             onMouseLeave={() => setHoverIdx(null)}>
+          {/* Pill background */}
+          <div
+            aria-hidden
+            style={{
+              position: "absolute", top: "50%",
+              left: pill ? pill.x : 0,
+              width: pill ? pill.w : 0,
+              height: 30,
+              transform: "translateY(-50%)",
+              background: dark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.06)",
+              borderRadius: 100,
+              transition: "left 0.35s cubic-bezier(0.16,1,0.3,1), width 0.35s cubic-bezier(0.16,1,0.3,1), opacity 0.25s ease",
+              opacity: pill ? 1 : 0,
+              pointerEvents: "none",
+            }}
+          />
+          {LINKS.map((l, i) => (
+            <a
+              key={l.id}
+              ref={(el) => { linkRefs.current[i] = el; }}
+              href={`#${l.id}`}
+              data-cursor="click"
+              onClick={scrollTo(l.id)}
+              onMouseEnter={() => { setHoverIdx(i); sounds.hover(); }}
+              style={{
+                position: "relative", zIndex: 1,
+                padding: "8px 14px", borderRadius: 100,
+                fontSize: 13, fontWeight: 500,
+                color: dark ? "rgba(255,255,255,0.78)" : "#475569",
+                textDecoration: "none",
+                fontFamily: "var(--font-inter), Inter, sans-serif",
+                letterSpacing: "-0.01em",
+                transition: "color 0.3s ease",
+              }}
             >
-              {/* Active pill background */}
-              {isActive && (
-                <motion.span
-                  layoutId="activeNavPill"
-                  className={`absolute inset-0 rounded-full ${
-                    scrolled
-                      ? "bg-[#1d1d1f]"
-                      : "bg-white/20"
-                  }`}
-                  transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                />
-              )}
-              <span
-                className={`relative z-10 ${
-                  isActive
-                    ? scrolled
-                      ? "text-white"
-                      : "text-white"
-                    : scrolled
-                    ? "text-[#1d1d1f] hover:text-[#6e6e73]"
-                    : "text-white/70 hover:text-white"
-                }`}
-              >
-                {link.label}
-              </span>
-            </Link>
-          );
-        })}
+              {l.label}
+            </a>
+          ))}
+        </div>
+
+        <div style={{
+          width: 1, height: 16, margin: "0 6px",
+          background: dark ? "rgba(255,255,255,0.18)" : "rgba(0,0,0,0.10)",
+          transition: "background 0.4s ease",
+        }} />
+
+        {/* Presence chip — visible on >= 720px */}
+        <span className="nav-presence" style={{ display: "inline-flex" }}>
+          <PresenceChip dark={dark} />
+        </span>
+
+        <span className="nav-audio" style={{ marginLeft: 6 }}>
+          <AudioToggle dark={dark} />
+        </span>
+
+        {/* Primary CTA */}
+        <Link
+          href="/quote"
+          data-cursor="click"
+          onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.background = "#40916c"; sounds.hover(); }}
+          onMouseLeave={(e) => ((e.currentTarget as HTMLAnchorElement).style.background = "#2d6a4f")}
+          style={{
+            marginLeft: 6,
+            padding: "9px 18px", borderRadius: 100,
+            fontSize: 13, fontWeight: 600,
+            background: "#2d6a4f", color: "#ffffff",
+            textDecoration: "none",
+            fontFamily: "var(--font-inter), Inter, sans-serif",
+            letterSpacing: "-0.01em",
+            transition: "background 0.25s ease",
+          }}
+        >
+          Get Quote
+        </Link>
       </div>
+
+      <style jsx global>{`
+        .nav-logo-n:hover { transform: rotate(360deg); }
+        @media (max-width: 760px) {
+          .nav-presence { display: none !important; }
+        }
+      `}</style>
     </motion.nav>
   );
 }

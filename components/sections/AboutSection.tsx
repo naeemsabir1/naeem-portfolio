@@ -1,335 +1,307 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { gsap } from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
+// ─────────────────────────────────────────────────────────────────────────────
+// AboutSection v6 — "The Naeem Experience" (Performance Optimized)
+// Profile showcase with glassmorphic 9:16 portrait and interactive terminal
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { useState, useRef, memo } from "react";
+import { motion, useInView } from "framer-motion";
+import dynamic from "next/dynamic";
 import { aboutData } from "@/data/content";
-import Image from "next/image";
 
-gsap.registerPlugin(ScrollTrigger);
+// Dynamic imports for heavy components
+const GlassIDE = dynamic(() => import("@/components/about/GlassIDE"), {
+  ssr: false,
+  loading: () => (
+    <div className="h-[500px] sm:h-[600px] bg-slate-900/50 rounded-2xl animate-pulse border border-white/10" />
+  ),
+});
 
-const METRICS = [
-  { value: 30, suffix: "+", label: "Projects Shipped" },
-  { value: 6, suffix: "+", label: "Years Building" },
-  { value: 100, suffix: "%", label: "Client Satisfaction" },
-];
+const CodeDisplay = dynamic(() => import("@/components/about/CodeDisplay"), {
+  ssr: false,
+  loading: () => <div className="h-[300px] sm:h-[400px] animate-pulse" />,
+});
 
-function AnimatedCounter({ value, suffix }: { value: number; suffix: string }) {
-  const ref = useRef<HTMLSpanElement>(null);
+const ProfileShowcase = dynamic(() => import("@/components/about/ProfileShowcase"), {
+  ssr: false,
+});
 
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const obj = { val: 0 };
-    gsap.to(obj, {
-      val: value,
-      duration: 2,
-      ease: "power2.out",
-      scrollTrigger: { trigger: el, start: "top 85%", toggleActions: "play none none none" },
-      onUpdate: () => { el.textContent = Math.round(obj.val) + suffix; },
+const EvasiveButton = dynamic(() => import("@/components/about/EvasiveButton"), {
+  ssr: false,
+});
+
+const EmailPopup = dynamic(() => import("@/components/about/EmailPopup"), {
+  ssr: false,
+});
+
+// Animation variants
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.1, delayChildren: 0.15 },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] },
+  },
+};
+
+// Interactive Terminal Game Component
+const InteractiveTerminal = memo(function InteractiveTerminal() {
+  const [showPopup, setShowPopup] = useState(false);
+  const [popupVariant, setPopupVariant] = useState<"success" | "caught">("success");
+  const [terminalOutput, setTerminalOutput] = useState<string[]>([
+    "Want to work together?",
+  ]);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const handleYes = () => {
+    if (isProcessing) return;
+    setIsProcessing(true);
+
+    // Simulate typing response
+    const responses = [
+      "Initializing connection...",
+      "Establishing secure channel...",
+      "Success! Opening communication portal...",
+    ];
+
+    let delay = 0;
+    responses.forEach((response, i) => {
+      setTimeout(() => {
+        setTerminalOutput((prev) => [...prev.slice(0, 1), response]);
+        if (i === responses.length - 1) {
+          setPopupVariant("success");
+          setShowPopup(true);
+          setIsProcessing(false);
+        }
+      }, (delay += 600));
     });
-  }, [value, suffix]);
+  };
 
-  return <span ref={ref}>0{suffix}</span>;
-}
+  const handleNoCatch = () => {
+    setPopupVariant("caught");
+    setShowPopup(true);
+    setTerminalOutput((prev) => [
+      ...prev.slice(0, 1),
+      "Error 418: I'm a teapot ☕",
+      "Just kidding! You caught me 😄",
+    ]);
+  };
+
+  return (
+    <>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.6, delay: 0.3 }}
+        className="mt-12 sm:mt-16"
+      >
+        <div className="relative w-full max-w-2xl mx-auto">
+          {/* Terminal container */}
+          <div className="relative rounded-xl overflow-hidden bg-slate-900/80 border border-white/10 p-4 sm:p-6">
+            {/* Terminal header */}
+            <div className="flex items-center gap-2 mb-4">
+              <div className="flex gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-red-500/80" />
+                <span className="w-2.5 h-2.5 rounded-full bg-yellow-500/80" />
+                <span className="w-2.5 h-2.5 rounded-full bg-green-500/80" />
+              </div>
+              <div className="ml-3 text-xs text-white/40 font-mono">terminal — zsh</div>
+            </div>
+
+            {/* Terminal content */}
+            <div className="font-mono text-sm sm:text-base space-y-2 min-h-[120px]">
+              {terminalOutput.map((line, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.1 }}
+                  className={i === 0 ? "text-white/70 pl-0" : "text-emerald-400/80 pl-4"}
+                >
+                  {i === 0 ? (
+                    <>
+                      <span className="text-emerald-400">➜</span>
+                      <span className="text-cyan-400"> ~</span>
+                      <span className="text-white/50"> echo &quot;{line}&quot;</span>
+                      <div className="text-white/70 pl-4 mt-1">{line}</div>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-emerald-400">➜</span>
+                      <span className="text-cyan-400"> ~</span>
+                      <span className="text-white/80 ml-2">{line}</span>
+                    </>
+                  )}
+                </motion.div>
+              ))}
+
+              {/* Interactive buttons */}
+              {!isProcessing && terminalOutput.length === 1 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                  className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-6 pt-4 border-t border-white/10"
+                >
+                  {/* Yes button */}
+                  <motion.button
+                    onClick={handleYes}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="px-8 py-3 rounded-xl font-medium text-sm bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-shadow"
+                  >
+                    Yes, let's talk! 🚀
+                  </motion.button>
+
+                  {/* Evasive No button */}
+                  <EvasiveButton onCatch={handleNoCatch} />
+                </motion.div>
+              )}
+
+              {/* Processing indicator */}
+              {isProcessing && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="flex items-center gap-2 text-white/40 mt-4 pl-4"
+                >
+                  <motion.span
+                    animate={{ opacity: [0.4, 1, 0.4] }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                  >
+                    Processing
+                  </motion.span>
+                  <motion.span
+                    animate={{ opacity: [0, 1, 0] }}
+                    transition={{ duration: 1.5, repeat: Infinity, delay: 0.3 }}
+                  >
+                    .
+                  </motion.span>
+                  <motion.span
+                    animate={{ opacity: [0, 1, 0] }}
+                    transition={{ duration: 1.5, repeat: Infinity, delay: 0.6 }}
+                  >
+                    .
+                  </motion.span>
+                  <motion.span
+                    animate={{ opacity: [0, 1, 0] }}
+                    transition={{ duration: 1.5, repeat: Infinity, delay: 0.9 }}
+                  >
+                    .
+                  </motion.span>
+                </motion.div>
+              )}
+            </div>
+
+            {/* Subtle gradient overlay */}
+            <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/0 via-emerald-500/5 to-emerald-500/0 opacity-0 hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Email Popup */}
+      <EmailPopup
+        email={aboutData.email}
+        isOpen={showPopup}
+        onClose={() => setShowPopup(false)}
+        variant={popupVariant}
+      />
+    </>
+  );
+});
 
 export default function AboutSection() {
   const sectionRef = useRef<HTMLElement>(null);
-  const leftColRef = useRef<HTMLDivElement>(null);
-  const rightColRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const section = sectionRef.current;
-    if (!section) return;
-
-    // Animate the photo container from the left
-    if (leftColRef.current) {
-        gsap.fromTo(leftColRef.current, 
-            { x: -40, opacity: 0 },
-            { x: 0, opacity: 1, duration: 1, ease: "power3.out", scrollTrigger: { trigger: leftColRef.current, start: "top 80%", toggleActions: "play none none none" } }
-        );
-    }
-    
-    // Animate text elements stagger from below
-    if (rightColRef.current) {
-        const els = rightColRef.current.querySelectorAll("[data-reveal]");
-        els.forEach((el, i) => {
-        gsap.fromTo(el,
-            { y: 40, opacity: 0 },
-            { y: 0, opacity: 1, duration: 0.8, delay: i * 0.08, ease: "power3.out",
-            scrollTrigger: { trigger: el, start: "top 85%", toggleActions: "play none none none" } }
-        );
-        });
-    }
-
-  }, []);
+  const isInView = useInView(sectionRef, { once: true, margin: "-50px" });
 
   return (
     <section
       ref={sectionRef}
       id="about"
-      className="about-section"
+      className="relative py-20 sm:py-28 lg:py-36 overflow-hidden"
       style={{
-        backgroundColor: "#fafafa",
-        padding: "160px 0",
-        width: "100%",
-        fontFamily: "'SF Pro Text', Inter, sans-serif",
-        position: "relative",
-        overflow: "hidden" // for decorative elements
+        background: "linear-gradient(180deg, #0a0f1c 0%, #06090e 100%)",
+        fontFamily: "var(--font-inter), Inter, sans-serif",
       }}
     >
-      {/* Decorative dot pattern background behind photo area */}
-      <div className="dot-pattern-bg" style={{
-        position: "absolute",
-        top: "-10%",
-        left: "-10%",
-        width: "60%",
-        height: "120%",
-        opacity: 0.6,
-        pointerEvents: "none",
-        zIndex: 0,
-      }}></div>
-
-      {/* Thin curved SVG line (tended vine curve) */}
-      <svg 
-        style={{
-            position: "absolute",
-            top: "10%",
-            right: "5%",
-            width: "400px",
-            height: "400px",
-            opacity: 0.1,
-            pointerEvents: "none",
-            zIndex: 0,
-        }}
-        viewBox="0 0 200 200" 
-        fill="none" 
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <path d="M 180 -20 C 130 50, 200 120, 100 180 C 40 216, -20 120, -50 150" stroke="#2d6a4f" strokeWidth="2" strokeLinecap="round" />
-        <path d="M 130 -10 C 150 40, 60 90, 80 160" stroke="#2d6a4f" strokeWidth="1" strokeLinecap="round" />
-      </svg>
-
-
-      <div className="about-container" style={{
-        maxWidth: "1280px", margin: "0 auto", padding: "0 24px",
-        display: "grid", alignItems: "start",
-        position: "relative", zIndex: 1
-      }}>
-        {/* LEFT COLUMN (45%) */}
-        <div ref={leftColRef} className="about-left" style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-          
-          <div className="photo-wrapper" style={{ position: "relative", width: "fit-content", marginLeft: "auto", marginRight: "auto" }}>
-            {/* Green offset card */}
-            <div className="photo-bg-card" style={{
-                position: "absolute",
-                top: "12px",
-                left: "12px",
-                right: "-12px",
-                bottom: "-12px",
-                backgroundColor: "#2d6a4f",
-                borderRadius: "24px",
-                zIndex: -1,
-            }}></div>
-            
-            {/* Main Photo Card */}
-            <div className="photo-container" style={{
-                width: "100%",
-                maxWidth: "360px",
-                aspectRatio: "360 / 440",
-                borderRadius: "24px",
-                overflow: "hidden",
-                boxShadow: "0 4px 16px rgba(0,0,0,0.06), 0 20px 60px rgba(0,0,0,0.08)",
-                backgroundColor: "#f5f5f7", /* fallback */
-            }}>
-                <Image 
-                    src="/my-image.webp" 
-                    alt="Naeem Sabir"
-                    width={360}
-                    height={440}
-                    priority
-                    style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "cover",
-                        display: "block"
-                    }} 
-                />
-            </div>
-          </div>
-
-          <div style={{ textAlign: "center", marginTop: "16px" }}>
-            <div style={{
-              fontSize: "24px", fontWeight: 600, color: "#1d1d1f",
-              fontFamily: "'SF Pro Display', -apple-system, sans-serif",
-              letterSpacing: "-0.01em"
-            }}>{aboutData.name}</div>
-            <div style={{
-              fontSize: "15px", color: "#6e6e73", marginTop: "4px",
-              fontWeight: 500
-            }}>Digital Product Engineer</div>
-            
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", marginTop: "12px" }}>
-                <div className="status-dot"></div>
-                <div style={{ fontSize: "12px", color: "#86868b", fontWeight: 500 }}>Available for projects</div>
-            </div>
-          </div>
-        </div>
-
-        {/* RIGHT COLUMN (55%) */}
-        <div ref={rightColRef} className="about-right" style={{ paddingTop: "20px" }}>
-          <div data-reveal style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "32px" }}>
-            <div style={{ width: "32px", height: "1px", backgroundColor: "#86868b" }}></div>
-            <div style={{
-                fontSize: "11px", fontWeight: 600, textTransform: "uppercase",
-                letterSpacing: "0.18em", color: "#86868b",
-            }}>About</div>
-          </div>
-
-          {/* Headline with pure CSS moss gradient hover */}
-          <h2 
-            data-reveal 
-            className="hover-moss-text"
-            style={{
-              fontSize: "clamp(28px, 3.2vw, 44px)", fontWeight: 700,
-              lineHeight: 1.1, letterSpacing: "-0.035em", color: "#1d1d1f",
-              fontFamily: "'SF Pro Display', -apple-system, sans-serif", margin: 0,
-              maxWidth: "600px",
-            }}>
-            I build software that people genuinely enjoy using.
-          </h2>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: "24px", marginTop: "40px" }}>
-            <p data-reveal style={{
-              fontSize: "17px", lineHeight: 1.7, color: "#424245",
-              maxWidth: "520px"
-            }}>
-              I engineer high-performance websites and intelligent applications. By deeply integrating agentic models into my workflow, I supercharge my creative and technical output, delivering complex solutions at unprecedented speeds.
-            </p>
-
-            <p data-reveal style={{
-              fontSize: "17px", lineHeight: 1.7, color: "#424245",
-              maxWidth: "520px"
-            }}>
-              I believe that the best software is not just functional, but deeply intuitive and beautifully crafted. My approach blends rigorous system architecture with an obsessive attention to user experience. Whether it's optimizing a complex background job or refining a micro-animation, I treat every line of code as an opportunity to build something exceptional.
-            </p>
-          </div>
-
-          {/* Metrics */}
-          <div data-reveal style={{
-            display: "flex", gap: "48px", marginTop: "64px",
-            paddingTop: "40px",
-            borderTop: "1px solid rgba(0,0,0,0.06)",
-            flexWrap: "wrap",
-            maxWidth: "520px"
-          }}>
-            {METRICS.map((m) => (
-               <div key={m.label} style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                <div style={{
-                  fontSize: "38px", fontWeight: 700, letterSpacing: "-0.03em",
-                  color: "#1d1d1f",
-                  fontFamily: "'SF Pro Display', -apple-system, sans-serif",
-                }}>
-                  <AnimatedCounter value={m.value} suffix={m.suffix} />
-                </div>
-                <div style={{
-                   fontSize: "13px", fontWeight: 500, color: "#86868b",
-                   letterSpacing: "-0.01em"
-                }}>{m.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
+      {/* Optimized background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div
+          className="absolute inset-0 opacity-20 sm:opacity-30"
+          style={{
+            background: `
+              radial-gradient(ellipse 80% 50% at 20% 40%, rgba(82, 183, 136, 0.08), transparent),
+              radial-gradient(ellipse 60% 40% at 80% 60%, rgba(56, 189, 248, 0.06), transparent),
+              radial-gradient(ellipse 50% 60% at 50% 80%, rgba(139, 92, 246, 0.04), transparent)
+            `,
+          }}
+        />
+        <div
+          className="absolute inset-0 opacity-10 sm:opacity-20"
+          style={{
+            backgroundImage: `
+              linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)
+            `,
+            backgroundSize: "40px 40px",
+          }}
+        />
       </div>
 
-      <style jsx>{`
-        .dot-pattern-bg {
-            background-image: radial-gradient(rgba(0,0,0,0.03) 2px, transparent 2px);
-            background-size: 24px 24px;
-        }
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        animate={isInView ? "visible" : "hidden"}
+        className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
+      >
+        {/* Section Header */}
+        <motion.div variants={itemVariants} className="text-center mb-10 sm:mb-14">
+          <div className="inline-flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-white/5 border border-white/10 mb-4 sm:mb-6">
+            <span className="relative flex h-1.5 w-1.5 sm:h-2 sm:w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-full w-full bg-emerald-500" />
+            </span>
+            <span className="text-white/60 text-xs sm:text-sm font-mono uppercase tracking-wider">About</span>
+          </div>
+          <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4 sm:mb-6 tracking-tight">
+            The <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">Naeem</span> Experience
+          </h2>
+          <p className="text-base sm:text-lg text-white/50 max-w-2xl mx-auto px-2 sm:px-0">
+            Full-Stack & AI Developer crafting resilient digital ecosystems.
+            Let's build something exceptional together.
+          </p>
+        </motion.div>
 
-        .about-container {
-            grid-template-columns: 45% 55%;
-            gap: 64px;
-        }
+        {/* Main Content Grid - Code Editor + Profile */}
+        <motion.div variants={itemVariants}>
+          <GlassIDE>
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 sm:gap-8">
+              {/* Left: Code Editor - 3 cols on desktop */}
+              <div className="lg:col-span-3 order-1">
+                <CodeDisplay />
+              </div>
 
-        .photo-container {
-            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease;
-        }
+              {/* Right: Profile Showcase - 2 cols on desktop */}
+              <div className="lg:col-span-2 order-2">
+                <ProfileShowcase email={aboutData.email} />
+              </div>
+            </div>
+          </GlassIDE>
+        </motion.div>
 
-        div:has(> .photo-bg-card):hover .photo-container {
-            transform: translateY(-3px);
-            box-shadow: 0 6px 20px rgba(0,0,0,0.08), 0 24px 64px rgba(0,0,0,0.1);
-        }
-
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background-color: #2d6a4f;
-            animation: pulse-dot 2s infinite cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        @keyframes pulse-dot {
-            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(45, 106, 79, 0.7); }
-            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(45, 106, 79, 0); }
-            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(45, 106, 79, 0); }
-        }
-      `}</style>
-      <style jsx global>{`
-         .hover-moss-text {
-            background: linear-gradient(to right, #1d1d1f 50%, #2d6a4f 100%);
-            background-size: 200% auto;
-            color: #1d1d1f;
-            background-clip: text;
-            WebkitBackgroundClip: text;
-            WebkitTextFillColor: currentColor;
-            transition: background-position 0.5s ease;
-         }
-         .hover-moss-text:hover {
-            background-position: right center;
-            WebkitTextFillColor: transparent;
-         }
-
-        @media (max-width: 900px) {
-          .about-container {
-            grid-template-columns: 1fr !important;
-            gap: 64px !important;
-          }
-        }
-        
-        @media (max-width: 768px) {
-          .about-section {
-              padding: 80px 0 !important;
-          }
-          .photo-bg-card {
-              display: none !important;
-          }
-          .photo-container {
-              max-width: 280px !important;
-          }
-          .about-left {
-              align-items: center;
-          }
-          .about-right {
-              align-items: center;
-              text-align: center;
-          }
-          .about-right > div:first-child {
-              justify-content: center;
-          }
-          .about-right p {
-             margin: 0 auto;
-          }
-          .about-right .hover-moss-text {
-             margin: 0 auto;
-          }
-          .about-right > div:last-child { /* metrics */
-             justify-content: center;
-          }
-        }
-      `}</style>
+        {/* Interactive Terminal Game */}
+        <InteractiveTerminal />
+      </motion.div>
     </section>
   );
 }
-

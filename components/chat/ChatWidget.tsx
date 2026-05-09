@@ -24,7 +24,7 @@ const QUICK_CHIPS = [
   "I want to get a quote",
 ];
 
-const FONT = "'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+const FONT = "var(--font-inter), Inter, -apple-system, sans-serif";
 
 export default function ChatWidget() {
   const [isOpen, setIsOpen] = useState(false);

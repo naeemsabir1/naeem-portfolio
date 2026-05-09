@@ -111,7 +111,7 @@ function Accordion({ title, content }: { title: string, content: string }) {
                 style={{
                     display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%",
                     background: "none", border: "none", padding: "8px 0", cursor: "pointer",
-                    fontFamily: "'SF Pro Text', Inter, sans-serif", fontSize: "14px", fontWeight: 600, color: "#1d1d1f"
+                    fontFamily: "var(--font-display), sans-serif", fontSize: "14px", fontWeight: 600, color: "#0f172a", letterSpacing: "-0.01em"
                 }}
             >
                 {title}
@@ -122,8 +122,8 @@ function Accordion({ title, content }: { title: string, content: string }) {
             <div ref={contentRef} style={{ height: 0, overflow: "hidden", opacity: 0 }}>
                 <div style={{ backgroundColor: "#f7f7f8", borderRadius: "8px", padding: "16px" }}>
                     <p style={{ 
-                        margin: 0, fontSize: "13px", lineHeight: 1.5, color: "#424245", 
-                        fontFamily: "'SF Pro Text', Inter, sans-serif", whiteSpace: "pre-wrap"
+                        margin: 0, fontSize: "14px", lineHeight: 1.75, color: "#475569", 
+                        fontFamily: "var(--font-inter), Inter, sans-serif", whiteSpace: "pre-wrap"
                     }}>
                         {content}
                     </p>
@@ -216,15 +216,15 @@ function AppProjectBlock({ project, index }: { project: Project, index: number }
                     <div style={{ display: "flex", flexDirection: "column" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "16px" }}>
                              <div style={{
-                                fontSize: "32px", color: "rgba(0,0,0,0.1)",
-                                fontWeight: 600, fontFamily: "JetBrains Mono, SF Mono, monospace",
-                                letterSpacing: "-0.05em"
+                                fontSize: "32px", color: "rgba(0,0,0,0.08)",
+                                fontWeight: 600, fontFamily: "var(--font-mono), monospace",
+                                letterSpacing: "-0.04em"
                              }}>
                                 {(index + 1).toString().padStart(2, '0')}
                              </div>
                              <div style={{
                                 display: "flex", alignItems: "center", gap: "8px",
-                                fontSize: "13px", fontWeight: 600, fontFamily: "JetBrains Mono, SF Mono, monospace",
+                                fontSize: "12px", fontWeight: 600, fontFamily: "var(--font-mono), monospace",
                                 color: project.color, backgroundColor: `${project.color}15`, 
                                 padding: "6px 14px", borderRadius: "100px", textTransform: "uppercase", letterSpacing: "0.5px"
                             }}>
@@ -236,16 +236,16 @@ function AppProjectBlock({ project, index }: { project: Project, index: number }
                         </div>
 
                         <h3 style={{
-                            fontSize: "clamp(36px, 4vw, 56px)", fontWeight: 700, margin: "0 0 12px 0",
-                            fontFamily: "'SF Pro Display', -apple-system, sans-serif",
-                            letterSpacing: "-0.02em", color: "#1d1d1f", lineHeight: 1.1
+                            fontSize: "clamp(36px, 4vw, 58px)", fontWeight: 800, margin: "0 0 12px 0",
+                            fontFamily: "var(--font-display), sans-serif",
+                            letterSpacing: "-0.04em", color: "#0f172a", lineHeight: 1.06
                         }}>
                             {project.name}
                         </h3>
                         
                         <p style={{
-                            fontSize: "22px", color: project.color, margin: "0 0 40px 0",
-                            fontWeight: 500, fontFamily: "'SF Pro Text', Inter, sans-serif"
+                            fontSize: "20px", color: project.color, margin: "0 0 40px 0",
+                            fontWeight: 500, fontFamily: "var(--font-inter), Inter, sans-serif", lineHeight: 1.5
                         }}>
                             {project.tagline}
                         </p>
@@ -253,9 +253,9 @@ function AppProjectBlock({ project, index }: { project: Project, index: number }
                         <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "32px" }}>
                             {project.stack.map((tech: string) => (
                                 <span key={tech} style={{
-                                    fontSize: "14px", padding: "8px 16px", borderRadius: "100px",
+                                    fontSize: "13px", padding: "7px 14px", borderRadius: "100px",
                                     backgroundColor: "#f5f5f7", color: "#6e6e73",
-                                    border: "1px solid rgba(0,0,0,0.05)", fontWeight: 500
+                                    border: "1px solid rgba(0,0,0,0.05)", fontWeight: 500, fontFamily: "var(--font-inter), Inter, sans-serif"
                                 }}>
                                     {tech}
                                 </span>
@@ -434,10 +434,10 @@ function WebsiteCard({ project }: { project: Project }) {
             </div>
 
             <div style={{ padding: "20px", display: "flex", flexDirection: "column", flexGrow: 1 }}>
-                <h4 style={{ margin: "0 0 4px 0", fontSize: "20px", fontWeight: 700, color: "#1d1d1f", fontFamily: "'SF Pro Display', -apple-system, sans-serif", letterSpacing: "-0.01em" }}>
+                <h4 style={{ margin: "0 0 4px 0", fontSize: "20px", fontWeight: 700, color: "#0f172a", fontFamily: "var(--font-display), sans-serif", letterSpacing: "-0.03em" }}>
                     {project.name}
                 </h4>
-                <p style={{ margin: "0 0 16px 0", fontSize: "14px", fontWeight: 500, color: project.color, fontFamily: "'SF Pro Text', Inter, sans-serif" }}>
+                <p style={{ margin: "0 0 16px 0", fontSize: "14px", fontWeight: 500, color: project.color, fontFamily: "var(--font-inter), Inter, sans-serif", lineHeight: 1.6 }}>
                     {project.tagline}
                 </p>
 
@@ -446,7 +446,7 @@ function WebsiteCard({ project }: { project: Project }) {
                         <span key={tech} style={{
                             fontSize: "12px", padding: "6px 14px", borderRadius: "100px",
                             backgroundColor: "rgba(0,0,0,0.04)", color: "#424245", 
-                            fontWeight: 500, fontFamily: "'SF Pro Text', -apple-system, sans-serif",
+                            fontWeight: 500, fontFamily: "var(--font-inter), Inter, sans-serif",
                             transition: "all 0.3s ease",
                             animation: expanded && i >= visibleCount ? `fadeSlideIn 0.3s ease ${(i - visibleCount) * 0.05}s both` : "none"
                         }}>{tech}</span>
@@ -457,7 +457,7 @@ function WebsiteCard({ project }: { project: Project }) {
                             background: expanded ? "rgba(45,106,79,0.1)" : "rgba(0,0,0,0.04)",
                             fontSize: "12px", fontWeight: 600, color: expanded ? "#2d6a4f" : "#86868b",
                             border: "none", cursor: "pointer",
-                            fontFamily: "'SF Pro Text', -apple-system, sans-serif", transition: "all 0.3s ease"
+                            fontFamily: "var(--font-inter), Inter, sans-serif", transition: "all 0.3s ease"
                         }}>
                             {expanded ? "Show less" : `+${hiddenCount}`}
                         </button>
@@ -547,10 +547,10 @@ export default function WorkSection() {
         <section
             ref={sectionRef}
             style={{
-                backgroundColor: "#fafafa",
+                backgroundColor: "#ffffff",
                 padding: "160px 0",
                 width: "100%",
-                fontFamily: "'SF Pro Text', Inter, sans-serif",
+                fontFamily: "var(--font-inter), Inter, sans-serif",
                 position: "relative",
                 zIndex: 2,
             }}
@@ -570,9 +570,9 @@ export default function WorkSection() {
                         ref={headingRef}
                         className="hover-moss-text"
                         style={{
-                            fontSize: "clamp(36px, 5vw, 72px)", fontWeight: 700,
-                            lineHeight: 1.1, letterSpacing: "-0.035em", color: "#1d1d1f",
-                            fontFamily: "'SF Pro Display', -apple-system, sans-serif", margin: 0,
+                            fontSize: "clamp(36px, 5vw, 72px)", fontWeight: 800,
+                            lineHeight: 1.05, letterSpacing: "-0.04em", color: "#0f172a",
+                            fontFamily: "var(--font-display), sans-serif", margin: 0,
                             maxWidth: "800px"
                         }}
                     >

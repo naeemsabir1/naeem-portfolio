@@ -3,11 +3,12 @@
 @theme {
   --color-glass-bg: rgba(255, 255, 255, 0.6);
   --color-glass-border: rgba(209, 213, 219, 0.5);
-  --color-accent: #0071e3;
-  --color-accent-light: #e8f4fd;
-  --color-surface: #F8F9FA;
-  --font-sans: 'Inter', sans-serif;
-  --font-display: 'Outfit', sans-serif;
+  --color-accent: #2d6a4f;
+  --color-accent-light: #52b788;
+  --color-surface: #f8f9fb;
+  --font-sans: "Inter", sans-serif;
+  --font-display: "Plus Jakarta Sans", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
 }
 
 :root {
@@ -92,18 +93,32 @@ body {
 /* ─── Custom Animations ───────────────────────────────────────────────────── */
 
 @keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
 }
 
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 @keyframes pulse-glow {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 0.8; }
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.8;
+  }
 }
 
 .animate-float {
@@ -138,13 +153,24 @@ body {
 /* ─── Preloader ───────────────────────────────────────────────────────────── */
 
 @keyframes logo-pulse {
-  0%, 100% { opacity: 0.4; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.06); }
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
 }
 
 @keyframes preloader-ring {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .preloader-logo {
@@ -155,68 +181,86 @@ body {
   animation: preloader-ring 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
 }
 
-/* ─── GPU Acceleration ────────────────────────────────────────────────────── */
+/* ========== HERO V3 ANIMATIONS ========== */
 
-.gpu-accelerated {
-  will-change: transform, opacity;
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
+@keyframes heroPulseDot {
+  0%   { box-shadow: 0 0 0 0   rgba(82, 183, 136, 0.8); }
+  70%  { box-shadow: 0 0 0 8px rgba(82, 183, 136, 0);   }
+  100% { box-shadow: 0 0 0 0   rgba(82, 183, 136, 0);   }
 }
 
-/* ─── Canvas Performance ──────────────────────────────────────────────────── */
-
-canvas {
-  will-change: contents;
-  image-rendering: -webkit-optimize-contrast;
+@keyframes meshDrift1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%       { transform: translate(60px, -40px) scale(1.1); }
+  66%       { transform: translate(-30px, 50px) scale(0.95); }
 }
 
-/* Prevent layout thrashing during scroll */
-.sticky {
-  will-change: transform;
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
+@keyframes meshDrift2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  40%       { transform: translate(-70px, 30px) scale(1.05); }
+  70%       { transform: translate(40px, -60px) scale(1.1); }
 }
 
-/* ─── Hero 3D Perspective Containers ──────────────────────────────────────── */
-
-.hero-content {
-  perspective: 1200px;
-  transform-style: preserve-3d;
+@keyframes meshDrift3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%       { transform: translate(50px, 40px) scale(0.9); }
 }
 
-.hero-img-container {
-  perspective: 1200px;
-  transform-style: preserve-3d;
+@keyframes heroTickerLeft {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
 }
 
-/* ========== HERO SCROLL SEQUENCE ========== */
-
-/* Ticker: infinite horizontal scroll, fading at edges */
-@keyframes tickerScroll {
-  0% {
-    transform: translateX(0);
-  }
-  100% {
-    transform: translateX(-33.333%);
-  }
+@keyframes heroTickerRight {
+  0%   { transform: translateX(-50%); }
+  100% { transform: translateX(0); }
 }
 
-/* Scroll hint pulse */
-@keyframes scrollPulse {
-  0%, 100% {
-    opacity: 0.3;
-    transform: scaleY(1);
-  }
-  50% {
-    opacity: 0.8;
-    transform: scaleY(1.2);
-  }
+@keyframes heroTickerScroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
 }
 
-/* Canvas performance */
-canvas {
-  will-change: contents;
-  image-rendering: -webkit-optimize-contrast;
+@keyframes heroCursorBlink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+@keyframes presenceRipple {
+  0%   { transform: scale(1);   opacity: 0.55; }
+  100% { transform: scale(2.6); opacity: 0;    }
+}
+
+@keyframes alivePulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(82,183,136,0.55); }
+  50%       { box-shadow: 0 0 0 6px rgba(82,183,136,0); }
+}
+
+@keyframes aliveType {
+  0%, 60%, 100% { transform: translateY(0);   opacity: 0.4; }
+  30%            { transform: translateY(-3px); opacity: 1;   }
+}
+
+@keyframes heroPulseDot {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(82,183,136,0.55); }
+  50%       { box-shadow: 0 0 0 7px rgba(82,183,136,0); }
+}
+
+@keyframes scrollProgress {
+  0%   { transform: scaleX(0); }
+  100% { transform: scaleX(1); }
+}
+
+@keyframes seamShimmer {
+  0%, 100% { opacity: 0.85; }
+  50%       { opacity: 1;    }
+}
+
+@keyframes sliderAutoTease {
+  0%   { left: 50%; }
+  40%  { left: 28%; }
+  75%  { left: 50%; }
+  100% { left: 50%; }
 }
 
 /* ========== SECTIONS BELOW HERO ========== */
@@ -259,7 +303,11 @@ section + section {
 /* ========== LIGHT THEME SECTIONS ========== */
 /* Smooth link hover transitions */
 a {
-  transition: opacity 0.2s ease, background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  transition:
+    opacity 0.2s ease,
+    background 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease;
 }
 
 a:active {
@@ -272,11 +320,13 @@ a[style*="background: #1d1d1f"]:hover {
 }
 
 a[style*="background: transparent"]:hover {
-  background: rgba(0,0,0,0.04) !important;
+  background: rgba(0, 0, 0, 0.04) !important;
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ========== WEBSITE CARDS HOVER ENHANCEMENTS ========== */
@@ -294,14 +344,17 @@ a[style*="background: transparent"]:hover {
 
 .website-card {
   border-top: 2px solid transparent !important;
-  transition: border-color 0.4s ease, transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease !important;
+  transition:
+    border-color 0.4s ease,
+    transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.4s ease !important;
 }
 
 .website-card:hover {
   border-top: 2px solid var(--accent-color) !important;
-  box-shadow: 
-    0 4px 12px rgba(0,0,0,0.05), 
-    0 20px 60px rgba(0,0,0,0.1),
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.05),
+    0 20px 60px rgba(0, 0, 0, 0.1),
     0 0 30px var(--accent-glow) !important;
 }
 
@@ -333,7 +386,7 @@ a[style*="background: transparent"]:hover {
 }
 
 .btn-primary.with-shine::after {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: -100%;
@@ -342,7 +395,7 @@ a[style*="background: transparent"]:hover {
   background: linear-gradient(
     120deg,
     transparent 0%,
-    rgba(255,255,255,0.15) 50%,
+    rgba(255, 255, 255, 0.15) 50%,
     transparent 100%
   );
   transition: left 0.5s ease;
@@ -363,18 +416,25 @@ a[style*="background: transparent"]:hover {
 .cta-primary:hover {
   background: #3a8a64;
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(45,106,79,0.25);
+  box-shadow: 0 8px 24px rgba(45, 106, 79, 0.25);
 }
 .cta-primary:active {
   transform: scale(0.97);
 }
 /* Shine sweep */
 .cta-primary::after {
-  content: '';
+  content: "";
   position: absolute;
-  top: 0; left: -100%;
-  width: 100%; height: 100%;
-  background: linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.12) 50%, transparent 100%);
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    120deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.12) 50%,
+    transparent 100%
+  );
   transition: left 0.5s ease;
 }
 .cta-primary:hover::after {
@@ -382,12 +442,12 @@ a[style*="background: transparent"]:hover {
 }
 
 .cta-ghost {
-  border: 1px solid rgba(255,255,255,0.2);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   transition: all 0.3s ease;
 }
 .cta-ghost:hover {
-  border-color: rgba(255,255,255,0.5);
-  background: rgba(255,255,255,0.05);
+  border-color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.05);
 }
 .cta-ghost:active {
   transform: scale(0.97);

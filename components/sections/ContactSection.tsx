@@ -95,7 +95,7 @@ export default function ContactSection() {
                 backgroundColor: "#fafafa",
                 padding: "160px 0 0",
                 width: "100%",
-                fontFamily: "'SF Pro Text', Inter, sans-serif",
+                fontFamily: "var(--font-inter), Inter, sans-serif",
                 position: "relative"
             }}
         >
@@ -114,6 +114,7 @@ export default function ContactSection() {
                     style={{
                         fontSize: "clamp(44px, 7vw, 88px)", fontWeight: 800,
                         lineHeight: 1.05, letterSpacing: "-0.04em", margin: "0 0 24px 0",
+                        fontFamily: "var(--font-display), sans-serif",
                         display: "inline-block",
                         background: "linear-gradient(135deg, #1d1d1f 0%, #2d6a4f 100%)",
                         backgroundSize: "200% auto",
@@ -126,8 +127,9 @@ export default function ContactSection() {
                 </h2>
 
                 <p className="contact-subtitle" style={{
-                    fontSize: "18px", lineHeight: 1.6, color: "#6e6e73",
-                    margin: "0 0 64px 0", maxWidth: "560px", fontWeight: 500
+                    fontSize: "18px", lineHeight: 1.75, color: "#6e6e73",
+                    margin: "0 0 64px 0", maxWidth: "560px", fontWeight: 400,
+                    fontFamily: "var(--font-inter), Inter, sans-serif"
                 }}>
                     I craft apps, websites, and AI-powered systems that deliver real business results. Tell me about your project — no commitment, just a conversation.
                 </p>
@@ -143,7 +145,7 @@ export default function ContactSection() {
                             </svg>
                         </div>
                         <div style={{ textAlign: "left" }}>
-                            <h3 style={{ fontSize: "18px", fontWeight: 700, color: "#1d1d1f", margin: "0 0 4px 0", fontFamily: "'SF Pro Display', sans-serif" }}>Mobile App</h3>
+                            <h3 style={{ fontSize: "18px", fontWeight: 700, color: "#0f172a", margin: "0 0 4px 0", fontFamily: "var(--font-display), sans-serif", letterSpacing: "-0.02em" }}>Mobile App</h3>
                             <p style={{ fontSize: "13px", color: "#86868b", margin: "0" }}>iOS & Android</p>
                         </div>
                         <div style={{ textAlign: "left", marginTop: "auto", paddingTop: "8px" }}>
@@ -161,7 +163,7 @@ export default function ContactSection() {
                             </svg>
                         </div>
                         <div style={{ textAlign: "left" }}>
-                            <h3 style={{ fontSize: "18px", fontWeight: 700, color: "#1d1d1f", margin: "0 0 4px 0", fontFamily: "'SF Pro Display', sans-serif" }}>Website</h3>
+                            <h3 style={{ fontSize: "18px", fontWeight: 700, color: "#0f172a", margin: "0 0 4px 0", fontFamily: "var(--font-display), sans-serif", letterSpacing: "-0.02em" }}>Website</h3>
                             <p style={{ fontSize: "13px", color: "#86868b", margin: "0" }}>Web Platform or E-Commerce</p>
                         </div>
                         <div style={{ textAlign: "left", marginTop: "auto", paddingTop: "8px" }}>
@@ -186,7 +188,7 @@ export default function ContactSection() {
                             </svg>
                         </div>
                         <div style={{ textAlign: "left" }}>
-                            <h3 style={{ fontSize: "18px", fontWeight: 700, color: "#1d1d1f", margin: "0 0 4px 0", fontFamily: "'SF Pro Display', sans-serif" }}>AI Workflow</h3>
+                            <h3 style={{ fontSize: "18px", fontWeight: 700, color: "#0f172a", margin: "0 0 4px 0", fontFamily: "var(--font-display), sans-serif", letterSpacing: "-0.02em" }}>AI Workflow</h3>
                             <p style={{ fontSize: "13px", color: "#86868b", margin: "0" }}>Automation & Intelligence</p>
                         </div>
                         <div style={{ textAlign: "left", marginTop: "auto", paddingTop: "8px" }}>
@@ -206,7 +208,7 @@ export default function ContactSection() {
                             backgroundColor: "#2d6a4f", color: "#ffffff",
                             fontSize: "18px", fontWeight: 700, borderRadius: "16px", textDecoration: "none",
                             boxShadow: "0 4px 16px rgba(45,106,79,0.2), 0 12px 40px rgba(45,106,79,0.15)",
-                            fontFamily: "'SF Pro Display', sans-serif"
+                            fontFamily: "var(--font-display), sans-serif", letterSpacing: "-0.01em"
                         }}
                     >
                         Get a Free Quote
@@ -235,7 +237,7 @@ export default function ContactSection() {
                             fontWeight: 600,
                             textDecoration: "none",
                             border: "1px solid rgba(0,0,0,0.12)",
-                            fontFamily: "'SF Pro Text', -apple-system, sans-serif",
+                            fontFamily: "var(--font-inter), Inter, sans-serif",
                             transition: "all 0.3s ease",
                         }}
                     >

@@ -1,6 +1,5 @@
 import dynamic from "next/dynamic";
-import HeroScrollSequence from "@/components/HeroScrollSequence";
-import HeroDivider from "@/components/sections/HeroDivider";
+import HeroSection from "@/components/sections/HeroSection";
 import AboutSection from "@/components/sections/AboutSection";
 import StackSection from "@/components/sections/StackSection";
 
@@ -16,12 +15,9 @@ const ContactSection = dynamic(
 
 export default function Home() {
   return (
-    <main style={{ backgroundColor: "#fafafa" }}>
-      {/* === DO NOT TOUCH — Hero Scroll Animation === */}
-      <HeroScrollSequence />
-
-      {/* === Dark-to-Light transition bridge === */}
-      <HeroDivider />
+    <main style={{ backgroundColor: "#ffffff" }}>
+      {/* === Hero — Dark Cinematic === */}
+      <HeroSection />
 
       {/* === Content Sections === */}
       <AboutSection />
