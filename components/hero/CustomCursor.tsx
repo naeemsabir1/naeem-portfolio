@@ -87,8 +87,6 @@ export default function CustomCursor() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reduceMotion]);
 
-  if (reduceMotion) return null;
-
   const size = SIZES[state];
   const label = LABELS[state];
   const isLabelState = state === "drag" || state === "click" || state === "view" || state === "watch";
@@ -104,7 +102,7 @@ export default function CustomCursor() {
         borderRadius: 999,
         zIndex: 9999,
         pointerEvents: "none",
-        opacity: visible ? 1 : 0,
+        opacity: reduceMotion ? 0 : visible ? 1 : 0,
         background: state === "default" || state === "text"
           ? "rgba(255,255,255,0.85)"
           : state === "drag"

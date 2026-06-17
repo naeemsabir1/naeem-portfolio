@@ -278,28 +278,6 @@ section + section {
   }
 }
 
-/* Mobile nav */
-@media (max-width: 768px) {
-  nav > div:last-child a:not(:last-child) {
-    font-size: 13px !important;
-  }
-}
-
-@media (max-width: 480px) {
-  nav {
-    padding: 16px 20px !important;
-  }
-  nav > a:first-child {
-    font-size: 16px !important;
-  }
-  nav > div {
-    gap: 16px !important;
-  }
-  nav > div a:not(:last-child) {
-    display: none !important;
-  }
-}
-
 /* ========== LIGHT THEME SECTIONS ========== */
 /* Smooth link hover transitions */
 a {

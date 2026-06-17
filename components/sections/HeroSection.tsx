@@ -1,864 +1,1391 @@
 "use client";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// HeroSection v3 — "God Mode"
-// Layered cinematic system:
-//   L0  Ambient WebGL gradient mesh        → <AmbientMesh />
-//   L1  Particle field (mouse-reactive)    → <ParticleCanvas />
-//   L2  Before/After slider centerpiece    → <BeforeAfterSlider />
-//        L2A DeadMock  • L2B AliveMock  • L2C divider/handle/seam
-//   L3  Foreground content
-//        L3A Eyebrow   • L3B KineticHeadline • L3C Subline • L3D CTAs • L3E StatRibbon
-//   L5  Custom contextual cursor           → <CustomCursor /> (rendered in layout)
-// ─────────────────────────────────────────────────────────────────────────────
-
-import { useEffect, useRef, useState, useCallback } from "react";
+import Image from "next/image";
+import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
+import type { CSSProperties, MouseEvent } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import AmbientMesh from "@/components/hero/AmbientMesh";
-import DeadMock from "@/components/hero/DeadMock";
-import AliveMock from "@/components/hero/AliveMock";
-import KineticHeadline from "@/components/hero/KineticHeadline";
-import { sounds } from "@/lib/audio";
+import type {
+  Group,
+  Mesh,
+  MeshBasicMaterial,
+  MeshPhysicalMaterial,
+  PerspectiveCamera,
+  Scene,
+  WebGLRenderer,
+} from "three";
 
-// ─── Inline icons ─────────────────────────────────────────────────────────────
-const DlIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-    <polyline points="7 10 12 15 17 10"/>
-    <line x1="12" y1="15" x2="12" y2="3"/>
-  </svg>
-);
-const ArrowIcon = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <line x1="5" y1="12" x2="19" y2="12"/>
-    <polyline points="12 5 19 12 12 19"/>
-  </svg>
-);
+const BUILD_LANES = [
+  {
+    id: "ai",
+    visualKind: "ai",
+    label: "AI workflows",
+    short: "Agents + RAG",
+    line: "Systems that remove busywork and turn scattered data into useful action.",
+    metric: "12+ AI integrations",
+    accent: "#1f7a5c",
+    secondaryAccent: "#2563eb",
+  },
+  {
+    id: "web",
+    visualKind: "web",
+    label: "Web products",
+    short: "SaaS + commerce",
+    line: "Interfaces that load fast, feel polished, and help people move with confidence.",
+    metric: "30+ shipped builds",
+    accent: "#2563eb",
+    secondaryAccent: "#1f7a5c",
+  },
+  {
+    id: "mobile",
+    visualKind: "mobile",
+    label: "Android apps",
+    short: "Flutter + AI",
+    line: "Mobile products with native-feeling flows, subscriptions, and production habits.",
+    metric: "4 yrs Flutter",
+    accent: "#d97706",
+    secondaryAccent: "#1f7a5c",
+  },
+] as const;
 
-// ─── L1 · Particle Canvas ─────────────────────────────────────────────────────
-function ParticleCanvas({ dividerXRef }: { dividerXRef: React.RefObject<number> }) {
+type BuildLane = (typeof BUILD_LANES)[number];
+
+function CraftCoreScene({
+  activeLane,
+  reducedMotion,
+}: {
+  activeLane: BuildLane;
+  reducedMotion: boolean;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const reduceMotion = useReducedMotion();
+  const stageRef = useRef<HTMLDivElement>(null);
+  const activeKindRef = useRef(activeLane.visualKind);
+  const accentRef = useRef(activeLane.accent);
+  const secondaryAccentRef = useRef(activeLane.secondaryAccent);
+
+  useEffect(() => {
+    activeKindRef.current = activeLane.visualKind;
+    accentRef.current = activeLane.accent;
+    secondaryAccentRef.current = activeLane.secondaryAccent;
+  }, [activeLane.accent, activeLane.secondaryAccent, activeLane.visualKind]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    const stage = stageRef.current;
+    if (!canvas || !stage) return;
 
-    const isMobile = window.matchMedia("(max-width: 768px)").matches;
-    const COUNT = isMobile ? 30 : 65;
+    let renderer: WebGLRenderer | null = null;
+    let scene: Scene | null = null;
+    let camera: PerspectiveCamera | null = null;
+    let sceneRoot: Group | null = null;
+    let resizeObserver: ResizeObserver | null = null;
+    let frame = 0;
+    let disposed = false;
 
-    let W = 0, H = 0, rafId = 0;
-    let mx = -9999, my = -9999;
-    let isRunning = true;
+    const pointer = { x: 0, y: 0 };
+    const easedPointer = { x: 0, y: 0 };
 
-    type P = { x: number; y: number; vx: number; vy: number; r: number; color: string };
-    let particles: P[] = [];
+    type AnimatableMaterial = MeshBasicMaterial | MeshPhysicalMaterial;
 
-    const COLORS = [
-      "rgba(82,183,136,IDX)",
-      "rgba(56,189,248,IDX)",
-      "rgba(255,255,255,IDX)",
-    ];
-    const pickColor = () =>
-      COLORS[Math.floor(Math.random() * COLORS.length)]
-        .replace("IDX", (Math.random() * 0.30 + 0.15).toFixed(2));
-
-    const init = () => {
-      W = canvas.width = canvas.offsetWidth;
-      H = canvas.height = canvas.offsetHeight;
-      particles = Array.from({ length: COUNT }, () => ({
-        x: Math.random() * W,
-        y: Math.random() * H,
-        vx: (Math.random() - 0.5) * 0.30,
-        vy: (Math.random() - 0.5) * 0.30,
-        r: Math.random() * 1.7 + 0.7,
-        color: pickColor(),
-      }));
+    type Spark = {
+      mesh: Mesh;
+      material: MeshBasicMaterial;
+      phase: number;
+      radius: number;
+      speed: number;
+      tilt: number;
     };
 
-    if (reduceMotion) {
-      init();
-      // Single static frame
-      ctx.clearRect(0, 0, W, H);
-      for (const p of particles) {
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fillStyle = p.color; ctx.fill();
+    type VisualGroup = {
+      key: BuildLane["visualKind"];
+      group: Group;
+      materials: AnimatableMaterial[];
+      baseScale: number;
+    };
+
+    const visualGroups: VisualGroup[] = [];
+    const aiSparks: Spark[] = [];
+    const aiRings: Mesh[] = [];
+    const webPanels: Mesh[] = [];
+    const webBars: Mesh[] = [];
+    const mobileCards: Mesh[] = [];
+
+    const init = async () => {
+      const THREE = await import("three");
+      if (disposed) return;
+
+      renderer = new THREE.WebGLRenderer({
+        canvas,
+        alpha: true,
+        antialias: true,
+        powerPreference: "high-performance",
+        preserveDrawingBuffer: true,
+      });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.7));
+      renderer.setClearColor(0xffffff, 0);
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(36, 1, 0.1, 100);
+      camera.position.set(0, 0.2, 7.2);
+
+      sceneRoot = new THREE.Group();
+      sceneRoot.rotation.set(-0.14, 0.2, 0.04);
+      scene.add(sceneRoot);
+
+      const ambient = new THREE.AmbientLight(0xffffff, 2.2);
+      scene.add(ambient);
+
+      const key = new THREE.DirectionalLight(0xffffff, 2.8);
+      key.position.set(4, 5, 6);
+      scene.add(key);
+
+      const rim = new THREE.PointLight(0x52b788, 24, 9);
+      rim.position.set(-3, -2, 4);
+      scene.add(rim);
+
+      const registerMaterial = <T extends AnimatableMaterial>(material: T, baseOpacity: number) => {
+        material.transparent = true;
+        material.opacity = baseOpacity;
+        material.depthWrite = false;
+        material.userData.baseOpacity = baseOpacity;
+        return material;
+      };
+
+      const registerVisual = (key: BuildLane["visualKind"], group: Group, materials: AnimatableMaterial[], baseScale = 1) => {
+        group.userData.visibility = key === activeKindRef.current ? 1 : 0;
+        group.scale.setScalar(key === activeKindRef.current ? baseScale : baseScale * 0.78);
+        materials.forEach((material) => {
+          const baseOpacity = material.userData.baseOpacity ?? material.opacity ?? 1;
+          material.opacity = key === activeKindRef.current ? baseOpacity : 0;
+        });
+        visualGroups.push({ key, group, materials, baseScale });
+        sceneRoot?.add(group);
+      };
+
+      const glass = (color: string, opacity: number, roughness = 0.28) =>
+        registerMaterial(
+          new THREE.MeshPhysicalMaterial({
+            color: new THREE.Color(color),
+            roughness,
+            metalness: 0.04,
+            clearcoat: 0.8,
+            clearcoatRoughness: 0.16,
+            transmission: 0.18,
+            thickness: 0.45,
+            transparent: true,
+            opacity,
+          }),
+          opacity
+        );
+
+      const basic = (color: string, opacity: number, wireframe = false) =>
+        registerMaterial(
+          new THREE.MeshBasicMaterial({
+            color: new THREE.Color(color),
+            transparent: true,
+            opacity,
+            wireframe,
+          }),
+          opacity
+        );
+
+      const roundedShape = (width: number, height: number, radius: number) => {
+        const x = -width / 2;
+        const y = -height / 2;
+        const shape = new THREE.Shape();
+        shape.moveTo(x + radius, y);
+        shape.lineTo(x + width - radius, y);
+        shape.quadraticCurveTo(x + width, y, x + width, y + radius);
+        shape.lineTo(x + width, y + height - radius);
+        shape.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+        shape.lineTo(x + radius, y + height);
+        shape.quadraticCurveTo(x, y + height, x, y + height - radius);
+        shape.lineTo(x, y + radius);
+        shape.quadraticCurveTo(x, y, x + radius, y);
+        return shape;
+      };
+
+      const createRoundedPanel = (width: number, height: number, radius: number, material: AnimatableMaterial) =>
+        new THREE.Mesh(new THREE.ShapeGeometry(roundedShape(width, height, radius)), material);
+
+      const aiMaterials: AnimatableMaterial[] = [];
+      const aiGroup = new THREE.Group();
+      aiGroup.position.set(0, 0.06, 0);
+      aiGroup.rotation.set(-0.16, 0.28, 0.06);
+
+      const aiCoreMaterial = glass("#1f7a5c", 0.92, 0.22);
+      aiMaterials.push(aiCoreMaterial);
+      const aiCore = new THREE.Mesh(new THREE.IcosahedronGeometry(1.08, 5), aiCoreMaterial);
+      aiCore.userData.isCore = true;
+      aiGroup.add(aiCore);
+
+      const aiWireMaterial = basic("#ffffff", 0.25, true);
+      aiMaterials.push(aiWireMaterial);
+      const aiWire = new THREE.Mesh(new THREE.SphereGeometry(1.72, 32, 18), aiWireMaterial);
+      aiGroup.add(aiWire);
+
+      const aiRingRotations = [
+        [0.42, 0.06, -0.2],
+        [1.32, 0.22, 0.82],
+        [0.18, 1.18, 0.2],
+      ];
+
+      aiRingRotations.forEach((rotation, index) => {
+        const ringMaterial = basic(index === 1 ? "#2563eb" : "#1f7a5c", index === 1 ? 0.28 : 0.22);
+        aiMaterials.push(ringMaterial);
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(2.05 + index * 0.28, 0.006, 12, 192), ringMaterial);
+        ring.rotation.set(rotation[0], rotation[1], rotation[2]);
+        ring.userData.speed = 0.12 + index * 0.035;
+        aiRings.push(ring);
+        aiGroup.add(ring);
+      });
+
+      const aiSparkGeometry = new THREE.SphereGeometry(0.048, 14, 14);
+      const aiSparkColors = ["#1f7a5c", "#2563eb", "#52b788", "#10231c"];
+      for (let i = 0; i < 16; i += 1) {
+        const material = basic(aiSparkColors[i % aiSparkColors.length], i % 4 === 0 ? 0.46 : 0.76);
+        aiMaterials.push(material);
+        const mesh = new THREE.Mesh(aiSparkGeometry, material);
+        aiSparks.push({
+          mesh,
+          material,
+          phase: i * 0.68,
+          radius: 1.78 + (i % 5) * 0.17,
+          speed: 0.18 + (i % 4) * 0.035,
+          tilt: -0.42 + (i % 6) * 0.17,
+        });
+        aiGroup.add(mesh);
       }
-      return;
-    }
 
-    const draw = () => {
-      if (!isRunning) { rafId = requestAnimationFrame(draw); return; }
-      ctx.clearRect(0, 0, W, H);
+      registerVisual("ai", aiGroup, aiMaterials, 1);
 
-      const seamX = dividerXRef.current ?? -9999;
+      const webMaterials: AnimatableMaterial[] = [];
+      const webGroup = new THREE.Group();
+      webGroup.position.set(0.08, 0.03, 0);
+      webGroup.rotation.set(-0.2, -0.2, 0.03);
 
-      for (let i = 0; i < COUNT; i++) {
-        const p = particles[i];
+      const webBackMaterial = glass("#e8fff4", 0.45, 0.34);
+      const webMainMaterial = glass("#ffffff", 0.74, 0.2);
+      const webAccentMaterial = basic("#2563eb", 0.62);
+      const webSoftMaterial = basic("#dff7ea", 0.72);
+      webMaterials.push(webBackMaterial, webMainMaterial, webAccentMaterial, webSoftMaterial);
 
-        // Mouse repulsion
-        const dx = p.x - mx, dy = p.y - my;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < 180) {
-          const force = (180 - dist) / 180;
-          p.vx += (dx / dist) * force * 0.4;
-          p.vy += (dy / dist) * force * 0.4;
+      const backPanel = new THREE.Mesh(new THREE.BoxGeometry(3.75, 2.05, 0.045), webBackMaterial);
+      backPanel.position.set(0.38, -0.12, -0.5);
+      backPanel.rotation.set(0.04, -0.16, 0.02);
+      webPanels.push(backPanel);
+      webGroup.add(backPanel);
+
+      const mainPanel = new THREE.Mesh(new THREE.BoxGeometry(3.55, 2.12, 0.07), webMainMaterial);
+      mainPanel.position.set(0, 0, -0.05);
+      webPanels.push(mainPanel);
+      webGroup.add(mainPanel);
+
+      const header = new THREE.Mesh(new THREE.BoxGeometry(3.24, 0.22, 0.08), webAccentMaterial);
+      header.position.set(0, 0.82, 0.03);
+      webPanels.push(header);
+      webGroup.add(header);
+
+      const sidebar = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.28, 0.08), webSoftMaterial);
+      sidebar.position.set(-1.3, -0.1, 0.04);
+      webPanels.push(sidebar);
+      webGroup.add(sidebar);
+
+      const cardGeometry = new THREE.BoxGeometry(0.82, 0.38, 0.08);
+      [
+        [-0.48, 0.34, 0.07, "#1f7a5c", 0.5],
+        [0.55, 0.34, 0.08, "#dff7ea", 0.82],
+        [-0.48, -0.2, 0.08, "#edfdf3", 0.82],
+        [0.55, -0.2, 0.09, "#2563eb", 0.22],
+      ].forEach(([x, y, z, color, opacity], index) => {
+        const material = basic(String(color), Number(opacity));
+        webMaterials.push(material);
+        const card = new THREE.Mesh(cardGeometry, material);
+        card.position.set(Number(x), Number(y), Number(z));
+        card.userData.float = index * 0.4;
+        webPanels.push(card);
+        webGroup.add(card);
+      });
+
+      const barGeometry = new THREE.BoxGeometry(0.18, 1, 0.1);
+      [0.42, 0.72, 0.55, 0.92, 0.64].forEach((height, index) => {
+        const material = basic(index % 2 === 0 ? "#1f7a5c" : "#2563eb", 0.62);
+        webMaterials.push(material);
+        const bar = new THREE.Mesh(barGeometry, material);
+        bar.scale.y = height;
+        bar.position.set(0.05 + index * 0.25, -0.76 + height / 2, 0.13);
+        bar.userData.baseHeight = height;
+        bar.userData.anchorY = -0.76;
+        bar.userData.phase = index * 0.5;
+        webBars.push(bar);
+        webGroup.add(bar);
+      });
+
+      registerVisual("web", webGroup, webMaterials, 1);
+
+      const mobileMaterials: AnimatableMaterial[] = [];
+      const mobileGroup = new THREE.Group();
+      mobileGroup.position.set(0.04, 0.02, 0);
+      mobileGroup.rotation.set(-0.1, 0.28, -0.04);
+
+      const phoneBodyMaterial = glass("#10231c", 0.9, 0.3);
+      const phoneScreenMaterial = glass("#fafffc", 0.78, 0.2);
+      const mobileAccentMaterial = basic("#d97706", 0.7);
+      const mobileGreenMaterial = basic("#1f7a5c", 0.58);
+      mobileMaterials.push(phoneBodyMaterial, phoneScreenMaterial, mobileAccentMaterial, mobileGreenMaterial);
+
+      const phoneBody = new THREE.Mesh(
+        new THREE.ExtrudeGeometry(roundedShape(1.68, 3.18, 0.22), {
+          depth: 0.12,
+          bevelEnabled: true,
+          bevelSize: 0.014,
+          bevelThickness: 0.012,
+          bevelSegments: 2,
+        }),
+        phoneBodyMaterial
+      );
+      phoneBody.geometry.center();
+      phoneBody.position.set(0, 0, -0.05);
+      mobileGroup.add(phoneBody);
+
+      const phoneScreen = createRoundedPanel(1.42, 2.72, 0.16, phoneScreenMaterial);
+      phoneScreen.position.set(0, -0.02, 0.04);
+      mobileGroup.add(phoneScreen);
+
+      const notch = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.05, 0.04), mobileAccentMaterial);
+      notch.position.set(0, 1.22, 0.08);
+      mobileGroup.add(notch);
+
+      [
+        [0, 0.64, 0.78, 0.34, "#1f7a5c", 0.42],
+        [-0.22, 0.08, 0.78, 0.44, "#e8fff4", 0.88],
+        [0.22, -0.55, 0.78, 0.5, "#d97706", 0.36],
+      ].forEach(([x, y, width, height, color, opacity], index) => {
+        const material = basic(String(color), Number(opacity));
+        mobileMaterials.push(material);
+        const card = createRoundedPanel(Number(width), Number(height), 0.08, material);
+        card.position.set(Number(x), Number(y), 0.1 + index * 0.016);
+        card.userData.baseX = Number(x);
+        card.userData.baseY = Number(y);
+        card.userData.phase = index * 0.8;
+        mobileCards.push(card);
+        mobileGroup.add(card);
+      });
+
+      const sparkRing = new THREE.Mesh(new THREE.TorusGeometry(0.38, 0.01, 10, 96), mobileAccentMaterial);
+      sparkRing.position.set(0.78, 0.66, 0.18);
+      sparkRing.rotation.set(0.4, 0.8, 0.2);
+      sparkRing.userData.isSparkRing = true;
+      mobileGroup.add(sparkRing);
+
+      const sparkNode = new THREE.Mesh(new THREE.SphereGeometry(0.075, 16, 16), mobileGreenMaterial);
+      sparkNode.position.set(0.78, 0.66, 0.18);
+      mobileGroup.add(sparkNode);
+
+      registerVisual("mobile", mobileGroup, mobileMaterials, 0.98);
+
+      const resize = () => {
+        if (!renderer || !camera) return;
+        const rect = stage.getBoundingClientRect();
+        const width = Math.max(1, Math.floor(rect.width));
+        const height = Math.max(1, Math.floor(rect.height));
+        renderer.setSize(width, height, false);
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+      };
+
+      resizeObserver = new ResizeObserver(resize);
+      resizeObserver.observe(stage);
+      resize();
+
+      const targetColor = new THREE.Color(accentRef.current);
+      const secondaryColor = new THREE.Color(secondaryAccentRef.current);
+      const aiRestColor = new THREE.Color("#1f7a5c");
+      const startTime = window.performance.now();
+
+      webPanels.forEach((panel, index) => {
+        panel.userData.baseY = panel.position.y;
+        panel.userData.baseRotZ = panel.rotation.z;
+        panel.userData.float = panel.userData.float ?? index * 0.18;
+      });
+
+      const render = () => {
+        if (!renderer || !scene || !camera || !sceneRoot) return;
+
+        const elapsed = (window.performance.now() - startTime) / 1000;
+        targetColor.set(accentRef.current);
+        secondaryColor.set(secondaryAccentRef.current);
+        rim.color.lerp(activeKindRef.current === "mobile" ? secondaryColor : targetColor, 0.05);
+
+        easedPointer.x += (pointer.x - easedPointer.x) * 0.045;
+        easedPointer.y += (pointer.y - easedPointer.y) * 0.045;
+
+        sceneRoot.rotation.y = 0.2 + easedPointer.x * 0.12;
+        sceneRoot.rotation.x = -0.14 - easedPointer.y * 0.08;
+
+        visualGroups.forEach((visual, index) => {
+          const isActive = visual.key === activeKindRef.current;
+          const nextVisibility = reducedMotion
+            ? isActive
+              ? 1
+              : 0
+            : visual.group.userData.visibility + ((isActive ? 1 : 0) - visual.group.userData.visibility) * 0.085;
+          const targetScale = visual.baseScale * (isActive ? 1 : 0.8);
+
+          visual.group.userData.visibility = nextVisibility;
+          visual.group.visible = nextVisibility > 0.025 || isActive;
+          visual.group.scale.setScalar(
+            reducedMotion ? targetScale : visual.group.scale.x + (targetScale - visual.group.scale.x) * 0.085
+          );
+
+          const inactiveShift = (index - 1) * 0.2;
+          visual.group.position.x += ((isActive ? 0 : inactiveShift) - visual.group.position.x) * 0.06;
+          visual.group.position.z += ((isActive ? 0 : -0.22) - visual.group.position.z) * 0.06;
+
+          visual.materials.forEach((material) => {
+            const baseOpacity = material.userData.baseOpacity ?? 1;
+            material.opacity = baseOpacity * nextVisibility;
+          });
+        });
+
+        if (!reducedMotion) {
+          aiGroup.rotation.y = 0.28 + elapsed * 0.08;
+          aiGroup.rotation.x = -0.16 + Math.sin(elapsed * 0.7) * 0.04;
+          aiCore.rotation.y = elapsed * 0.18;
+          aiCore.rotation.x = Math.sin(elapsed * 0.5) * 0.18;
+          aiRings.forEach((ring, index) => {
+            ring.rotation.z += 0.002 + index * 0.001;
+            ring.rotation.y += Number(ring.userData.speed) * 0.005;
+          });
+        } else {
+          aiGroup.rotation.set(-0.16, 0.28, 0.06);
+          aiCore.rotation.set(-0.1, 0.22, 0);
         }
 
-        // Subtle pull toward slider seam
-        if (seamX > 0) {
-          const sdx = seamX - p.x;
-          const sdist = Math.abs(sdx);
-          if (sdist < 220 && sdist > 4) {
-            p.vx += (sdx / sdist) * 0.012;
-          }
+        aiCoreMaterial.color.lerp(activeKindRef.current === "ai" ? targetColor : aiRestColor, 0.08);
+        aiSparks.forEach((spark) => {
+          const orbit = elapsed * spark.speed + spark.phase;
+          spark.mesh.position.set(
+            Math.cos(orbit) * spark.radius,
+            Math.sin(orbit + spark.tilt) * 0.58,
+            Math.sin(orbit) * spark.radius * 0.32
+          );
+          const baseOpacity = spark.material.userData.baseOpacity ?? 0.7;
+          spark.material.opacity = baseOpacity * aiGroup.userData.visibility * (0.78 + Math.sin(orbit * 1.8) * 0.18);
+        });
+
+        webPanels.forEach((panel, index) => {
+          if (reducedMotion) return;
+          const float = Number(panel.userData.float ?? index * 0.18);
+          panel.position.y = Number(panel.userData.baseY) + Math.sin(elapsed * 0.9 + float) * 0.025;
+          panel.rotation.z = Number(panel.userData.baseRotZ) + Math.sin(elapsed * 0.6 + float) * 0.006;
+        });
+
+        webBars.forEach((bar) => {
+          const baseHeight = Number(bar.userData.baseHeight);
+          const anchorY = Number(bar.userData.anchorY);
+          const phase = Number(bar.userData.phase);
+          const height = reducedMotion ? baseHeight : baseHeight * (0.9 + Math.sin(elapsed * 1.8 + phase) * 0.08);
+          bar.scale.y = height;
+          bar.position.y = anchorY + height / 2;
+        });
+
+        if (!reducedMotion) {
+          webGroup.rotation.y = -0.2 + Math.sin(elapsed * 0.55) * 0.06;
+          mobileGroup.rotation.y = 0.28 + Math.sin(elapsed * 0.65) * 0.07;
+          mobileGroup.rotation.z = -0.04 + Math.sin(elapsed * 0.5) * 0.025;
+          mobileCards.forEach((card) => {
+            const phase = Number(card.userData.phase);
+            card.position.x = Number(card.userData.baseX) + Math.sin(elapsed * 0.85 + phase) * 0.02;
+            card.position.y = Number(card.userData.baseY) + Math.cos(elapsed * 0.75 + phase) * 0.025;
+          });
+          sparkRing.rotation.z = elapsed * 0.45;
+        } else {
+          webGroup.rotation.set(-0.2, -0.2, 0.03);
+          mobileGroup.rotation.set(-0.1, 0.28, -0.04);
         }
 
-        p.vx *= 0.97; p.vy *= 0.97;
-        const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
-        if (speed > 2) { p.vx = (p.vx / speed) * 2; p.vy = (p.vy / speed) * 2; }
-        p.x += p.vx; p.y += p.vy;
-        if (p.x < 0) p.x = W; if (p.x > W) p.x = 0;
-        if (p.y < 0) p.y = H; if (p.y > H) p.y = 0;
+        camera.position.x = easedPointer.x * 0.32;
+        camera.position.y = 0.2 + easedPointer.y * 0.2;
+        camera.lookAt(0, 0, 0);
+        renderer.render(scene, camera);
 
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fillStyle = p.color;
-        ctx.fill();
+        frame = window.requestAnimationFrame(render);
+      };
 
-        for (let j = i + 1; j < COUNT; j++) {
-          const q = particles[j];
-          const ldx = p.x - q.x, ldy = p.y - q.y;
-          const d = Math.sqrt(ldx * ldx + ldy * ldy);
-          if (d < 120) {
-            const alpha = (1 - d / 120) * 0.10;
-            ctx.beginPath();
-            ctx.moveTo(p.x, p.y);
-            ctx.lineTo(q.x, q.y);
-            ctx.strokeStyle = `rgba(255,255,255,${alpha.toFixed(3)})`;
-            ctx.lineWidth = 0.6;
-            ctx.stroke();
-          }
-        }
-      }
-      rafId = requestAnimationFrame(draw);
+      render();
     };
 
-    const onMouseMove = (e: MouseEvent) => {
-      const rect = canvas.getBoundingClientRect();
-      mx = e.clientX - rect.left;
-      my = e.clientY - rect.top;
+    const onPointerMove = (event: PointerEvent) => {
+      const rect = stage.getBoundingClientRect();
+      pointer.x = ((event.clientX - rect.left) / rect.width - 0.5) * 2;
+      pointer.y = ((event.clientY - rect.top) / rect.height - 0.5) * 2;
     };
-    const onMouseLeave = () => { mx = -9999; my = -9999; };
-    const onResize = () => init();
-    const onVisibility = () => { isRunning = document.visibilityState === "visible"; };
 
+    const onPointerLeave = () => {
+      pointer.x = 0;
+      pointer.y = 0;
+    };
+
+    stage.addEventListener("pointermove", onPointerMove, { passive: true });
+    stage.addEventListener("pointerleave", onPointerLeave);
     init();
-    canvas.addEventListener("mousemove", onMouseMove);
-    canvas.addEventListener("mouseleave", onMouseLeave);
-    window.addEventListener("resize", onResize);
-    document.addEventListener("visibilitychange", onVisibility);
-    rafId = requestAnimationFrame(draw);
 
     return () => {
-      cancelAnimationFrame(rafId);
-      canvas.removeEventListener("mousemove", onMouseMove);
-      canvas.removeEventListener("mouseleave", onMouseLeave);
-      window.removeEventListener("resize", onResize);
-      document.removeEventListener("visibilitychange", onVisibility);
+      disposed = true;
+      window.cancelAnimationFrame(frame);
+      resizeObserver?.disconnect();
+      stage.removeEventListener("pointermove", onPointerMove);
+      stage.removeEventListener("pointerleave", onPointerLeave);
+      renderer?.dispose();
+      if (scene) {
+        scene.traverse((object) => {
+          const maybeMesh = object as Mesh;
+          maybeMesh.geometry?.dispose();
+          const material = maybeMesh.material;
+          if (Array.isArray(material)) {
+            material.forEach((item) => item.dispose());
+          } else {
+            material?.dispose();
+          }
+        });
+      }
     };
-  }, [reduceMotion, dividerXRef]);
+  }, [reducedMotion]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      aria-hidden
-      style={{
-        position: "absolute", inset: 0, width: "100%", height: "100%",
-        zIndex: 1, pointerEvents: "auto",
-      }}
-    />
-  );
-}
-
-// ─── L2 · Before/After Slider ─────────────────────────────────────────────────
-function BeforeAfterSlider({
-  reduceMotion,
-  onSeamX,
-}: {
-  reduceMotion: boolean;
-  onSeamX: (x: number | null) => void;
-}) {
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const aliveClipRef = useRef<HTMLDivElement>(null);
-  const lineRef = useRef<HTMLDivElement>(null);
-  const handleRef = useRef<HTMLButtonElement>(null);
-  const seamRef = useRef<HTMLDivElement>(null);
-  const draggingRef = useRef(false);
-  const valueRef = useRef(50);
-  const lastSnapRef = useRef<number | null>(null);
-  const demoRunningRef = useRef(false);
-  const demoCancelRef = useRef<(() => void) | null>(null);
-  const [demoActive, setDemoActive] = useState(false);
-
-  const apply = useCallback((pct: number, animate = false) => {
-    valueRef.current = pct;
-    const apr = Math.max(0, Math.min(100, pct));
-    if (aliveClipRef.current) {
-      // Alive panel revealed from RIGHT side (so dead is left, alive is right)
-      aliveClipRef.current.style.clipPath = `inset(0 0 0 ${apr}%)`;
-      if (animate) aliveClipRef.current.style.transition = "clip-path 0.45s cubic-bezier(0.16,1,0.3,1)";
-      else aliveClipRef.current.style.transition = "";
-    }
-    if (lineRef.current) {
-      lineRef.current.style.left = `${apr}%`;
-      if (animate) lineRef.current.style.transition = "left 0.45s cubic-bezier(0.16,1,0.3,1)";
-      else lineRef.current.style.transition = "";
-    }
-    if (handleRef.current) {
-      handleRef.current.style.left = `${apr}%`;
-      if (animate) handleRef.current.style.transition = "left 0.45s cubic-bezier(0.16,1,0.3,1)";
-      else handleRef.current.style.transition = "";
-      handleRef.current.setAttribute("aria-valuenow", String(Math.round(apr)));
-    }
-    if (seamRef.current) {
-      seamRef.current.style.left = `${apr}%`;
-    }
-    // Notify particle canvas of seam X (in section coords)
-    const wrap = wrapRef.current;
-    if (wrap) {
-      const wr = wrap.getBoundingClientRect();
-      const section = wrap.closest("section");
-      if (section) {
-        const sr = section.getBoundingClientRect();
-        const seamPx = wr.left + (apr / 100) * wr.width - sr.left;
-        onSeamX(seamPx);
-      }
-    }
-  }, [onSeamX]);
-
-  useEffect(() => {
-    apply(50);
-    const wrap = wrapRef.current;
-    if (!wrap) return;
-
-    const updateFromClientX = (clientX: number) => {
-      const rect = wrap.getBoundingClientRect();
-      const pct = ((clientX - rect.left) / rect.width) * 100;
-      const clamped = Math.max(0, Math.min(100, pct));
-      apply(clamped);
-
-      // Crossing-50% feedback (snap-feel pulse)
-      const last = lastSnapRef.current;
-      if ((last === null) || (last < 50 && clamped >= 50) || (last >= 50 && clamped < 50)) {
-        if (handleRef.current) {
-          handleRef.current.animate(
-            [{ transform: "translate(-50%,-50%) scale(1)" },
-             { transform: "translate(-50%,-50%) scale(1.18)" },
-             { transform: "translate(-50%,-50%) scale(1)" }],
-            { duration: 280, easing: "cubic-bezier(0.16,1,0.3,1)" });
-        }
-      }
-      lastSnapRef.current = clamped;
-    };
-
-    const onPointerDown = (e: PointerEvent) => {
-      const target = e.target as HTMLElement;
-      // Only start drag on slider surface itself (not links inside mocks if any)
-      if (!wrap.contains(target)) return;
-      // Abort any running auto-demo immediately on first user input
-      if (demoRunningRef.current && demoCancelRef.current) {
-        demoCancelRef.current();
-      }
-      draggingRef.current = true;
-      wrap.setPointerCapture?.(e.pointerId);
-      updateFromClientX(e.clientX);
-      sounds.dragStart();
-      e.preventDefault();
-    };
-    const onPointerMove = (e: PointerEvent) => {
-      if (!draggingRef.current) return;
-      updateFromClientX(e.clientX);
-    };
-    const onPointerUp = (e: PointerEvent) => {
-      if (!draggingRef.current) return;
-      draggingRef.current = false;
-      wrap.releasePointerCapture?.(e.pointerId);
-      // Magnetic snap to edges
-      const v = valueRef.current;
-      if (v < 8) { apply(0, true); sounds.snap(); }
-      else if (v > 92) { apply(100, true); sounds.snap(); }
-      else sounds.dragEnd();
-    };
-
-    wrap.addEventListener("pointerdown", onPointerDown);
-    window.addEventListener("pointermove", onPointerMove);
-    window.addEventListener("pointerup", onPointerUp);
-    window.addEventListener("pointercancel", onPointerUp);
-
-    // Resize: re-apply current value so seam/clip stay correct
-    const onResize = () => apply(valueRef.current);
-    window.addEventListener("resize", onResize);
-
-    return () => {
-      wrap.removeEventListener("pointerdown", onPointerDown);
-      window.removeEventListener("pointermove", onPointerMove);
-      window.removeEventListener("pointerup", onPointerUp);
-      window.removeEventListener("pointercancel", onPointerUp);
-      window.removeEventListener("resize", onResize);
-      onSeamX(null);
-    };
-  }, [apply, onSeamX]);
-
-  // Keyboard support on the handle
-  const onKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
-    const step = e.shiftKey ? 10 : 5;
-    let next = valueRef.current;
-    if (e.key === "ArrowLeft") next -= step;
-    else if (e.key === "ArrowRight") next += step;
-    else if (e.key === "Home") next = 0;
-    else if (e.key === "End") next = 100;
-    else return;
-    e.preventDefault();
-    apply(Math.max(0, Math.min(100, next)), true);
-    sounds.snap();
-  };
-
-  // Full auto-demo loop — plays ONCE per session, aborts on user interaction.
-  // Choreography: 50 → 100 (1.4s) → pause → 0 (1.6s) → pause → 50 (1.0s)
-  useEffect(() => {
-    if (reduceMotion) return;
-    if (typeof window === "undefined") return;
-    const KEY = "naeem-slider-demo-played";
-    if (sessionStorage.getItem(KEY)) return;
-
-    let cancelled = false;
-    const timeouts: number[] = [];
-    let rafId = 0;
-
-    const ease = (t: number) => 1 - Math.pow(1 - t, 3); // easeOutCubic
-
-    // Tween via rAF for smooth motion, ignoring framer's clip transitions
-    const tweenTo = (from: number, to: number, dur: number) =>
-      new Promise<void>((resolve) => {
-        const start = performance.now();
-        const step = (now: number) => {
-          if (cancelled) { resolve(); return; }
-          const t = Math.min(1, (now - start) / dur);
-          const v = from + (to - from) * ease(t);
-          apply(v);
-          if (t < 1) rafId = requestAnimationFrame(step);
-          else resolve();
-        };
-        rafId = requestAnimationFrame(step);
-      });
-
-    const wait = (ms: number) =>
-      new Promise<void>((resolve) => {
-        const id = window.setTimeout(resolve, ms);
-        timeouts.push(id);
-      });
-
-    demoCancelRef.current = () => {
-      cancelled = true;
-      cancelAnimationFrame(rafId);
-      timeouts.forEach((id) => clearTimeout(id));
-      demoRunningRef.current = false;
-      setDemoActive(false);
-      sessionStorage.setItem(KEY, "1");
-    };
-
-    const run = async () => {
-      // Initial wait for hero reveal cascade (1500ms after page load)
-      await wait(2000);
-      if (cancelled) return;
-
-      demoRunningRef.current = true;
-      setDemoActive(true);
-      sounds.dragStart();
-
-      // 50 → 100 (full alive reveal)
-      await tweenTo(50, 100, 1400);
-      if (cancelled) return;
-      await wait(450);
-      if (cancelled) return;
-
-      // 100 → 0 (full dead reveal)
-      await tweenTo(100, 0, 1600);
-      if (cancelled) return;
-      await wait(450);
-      if (cancelled) return;
-
-      // 0 → 50 (return to neutral)
-      await tweenTo(0, 50, 1000);
-      if (cancelled) return;
-
-      sounds.dragEnd();
-      demoRunningRef.current = false;
-      setDemoActive(false);
-      sessionStorage.setItem(KEY, "1");
-    };
-
-    run();
-
-    return () => {
-      cancelled = true;
-      cancelAnimationFrame(rafId);
-      timeouts.forEach((id) => clearTimeout(id));
-      demoRunningRef.current = false;
-    };
-  }, [apply, reduceMotion]);
-
-  return (
-    <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
-      {/* Side labels */}
-      <div style={{
-        display: "flex", justifyContent: "space-between", alignItems: "center",
-        padding: "0 4px",
-        fontFamily: "var(--font-mono), monospace",
-        fontSize: 11, fontWeight: 500, letterSpacing: "0.14em", textTransform: "uppercase",
-        color: "rgba(255,255,255,0.55)",
-      }}>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-          <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#ef4444", display: "inline-block" }} />
-          Before <span style={{ color: "rgba(255,255,255,0.30)", marginLeft: 6 }}>— 2014 vibes</span>
-        </span>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-          <span style={{ color: "rgba(255,255,255,0.30)", marginRight: 6 }}>2026 craft —</span>
-          After
-          <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#52b788", display: "inline-block" }} />
-        </span>
-      </div>
-
-      <div
-        ref={wrapRef}
-        data-cursor={demoActive ? "watch" : "drag"}
-        role="region"
-        aria-label="Before and after project comparison"
-        style={{
-          position: "relative",
-          width: "100%",
-          aspectRatio: "16 / 9",
-          minHeight: 280,
-          maxHeight: 460,
-          borderRadius: 18,
-          overflow: "hidden",
-          touchAction: "none",
-          userSelect: "none",
-          background: "#0a0f1c",
-          border: "1px solid rgba(255,255,255,0.10)",
-          boxShadow: "0 30px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.04) inset",
-          cursor: "ew-resize",
-        }}
-      >
-        {/* Dead mock — full bleed */}
-        <div style={{ position: "absolute", inset: 0 }}>
-          <DeadMock />
-        </div>
-
-        {/* Alive mock — clipped from left edge */}
-        <div ref={aliveClipRef} style={{ position: "absolute", inset: 0, clipPath: "inset(0 0 0 50%)" }}>
-          <AliveMock />
-        </div>
-
-        {/* Seam — chromatic-aberration vertical strip */}
-        <div
-          ref={seamRef}
-          aria-hidden
-          style={{
-            position: "absolute", top: 0, bottom: 0, left: "50%",
-            transform: "translateX(-50%)",
-            width: 36,
-            pointerEvents: "none",
-            zIndex: 11,
-            background: "linear-gradient(90deg, rgba(56,189,248,0) 0%, rgba(56,189,248,0.06) 35%, rgba(82,183,136,0.10) 50%, rgba(129,140,248,0.06) 65%, rgba(129,140,248,0) 100%)",
-            mixBlendMode: "screen",
-            animation: reduceMotion ? "none" : "seamShimmer 2.4s ease-in-out infinite",
-          }}
-        />
-
-        {/* Divider line */}
-        <div
-          ref={lineRef}
-          aria-hidden
-          style={{
-            position: "absolute", top: 0, bottom: 0, left: "50%",
-            transform: "translateX(-50%)", width: 2,
-            background: "linear-gradient(to bottom, rgba(255,255,255,0.06), rgba(255,255,255,0.95) 20%, rgba(255,255,255,0.95) 80%, rgba(255,255,255,0.06))",
-            pointerEvents: "none", zIndex: 12,
-          }}
-        />
-
-        {/* Handle */}
-        <button
-          ref={handleRef}
-          type="button"
-          role="slider"
-          aria-label="Reveal more of the alive design"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={50}
-          onKeyDown={onKeyDown}
-          style={{
-            position: "absolute", top: "50%", left: "50%",
-            transform: "translate(-50%,-50%)",
-            width: 52, height: 52, borderRadius: "50%",
-            background: "#ffffff",
-            boxShadow: "0 4px 20px rgba(0,0,0,0.45), 0 0 0 4px rgba(255,255,255,0.20)",
-            display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
-            border: "none", cursor: "ew-resize", zIndex: 13,
-            color: "#0a0f1c",
-            outline: "none",
-          }}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <polyline points="9 18 15 12 9 6" />
-          </svg>
-        </button>
-
-        {/* "drag to compare" hint pill */}
-        <div aria-hidden style={{
-          position: "absolute", bottom: 14, left: "50%",
-          transform: "translateX(-50%)",
-          background: "rgba(15,17,23,0.70)",
-          color: "rgba(255,255,255,0.85)",
-          backdropFilter: "blur(8px)",
-          WebkitBackdropFilter: "blur(8px)",
-          border: "1px solid rgba(255,255,255,0.10)",
-          borderRadius: 100, padding: "5px 12px",
-          fontSize: 10, fontFamily: "var(--font-mono), monospace",
-          letterSpacing: "0.10em", whiteSpace: "nowrap",
-          pointerEvents: "none", zIndex: 14,
-        }}>
-          {demoActive ? "demo — drag any time to take over" : "← drag to compare →"}
-        </div>
-      </div>
+    <div ref={stageRef} className="hero-core-stage" aria-hidden="true">
+      <div className="hero-core-fallback" />
+      <canvas ref={canvasRef} className="hero-core-canvas" data-hero-three="true" />
     </div>
   );
 }
 
-// ─── L3D · Magnetic CTA ───────────────────────────────────────────────────────
-function MagneticBtn({
-  children, href, download, style: s, className, onClick,
-}: {
-  children: React.ReactNode; href: string; download?: string;
-  style?: React.CSSProperties; className?: string;
-  onClick?: (e: React.MouseEvent<HTMLAnchorElement>) => void;
-}) {
-  const ref = useRef<HTMLAnchorElement>(null);
-  const onMove = (e: React.MouseEvent) => {
-    const el = ref.current; if (!el) return;
-    const r = el.getBoundingClientRect();
-    const x = (e.clientX - r.left - r.width  / 2) * 0.22;
-    const y = (e.clientY - r.top  - r.height / 2) * 0.22;
-    el.style.transform = `translate(${x}px,${y}px)`;
-  };
-  const onLeave = () => { if (ref.current) ref.current.style.transform = "translate(0,0)"; };
-  return (
-    <a
-      ref={ref}
-      href={href}
-      download={download}
-      data-cursor="click"
-      className={className}
-      style={{ ...s, transition: "transform 0.45s cubic-bezier(0.16,1,0.3,1), background 0.25s, box-shadow 0.25s, border-color 0.25s, color 0.25s" }}
-      onMouseMove={onMove}
-      onMouseEnter={() => sounds.hover()}
-      onMouseLeave={onLeave}
-      onClick={onClick}
-    >
-      {children}
-    </a>
-  );
-}
-
-// ─── L3E · Animated stat counter ──────────────────────────────────────────────
-function Counter({ to, suffix = "", duration = 1400 }: { to: number; suffix?: string; duration?: number }) {
-  const [n, setN] = useState(0);
-  const ref = useRef<HTMLSpanElement>(null);
-  useEffect(() => {
-    const el = ref.current; if (!el) return;
-    let started = false;
-    const obs = new IntersectionObserver((entries) => {
-      if (entries[0].isIntersecting && !started) {
-        started = true;
-        const start = performance.now();
-        const tick = (now: number) => {
-          const t = Math.min(1, (now - start) / duration);
-          const eased = 1 - Math.pow(1 - t, 3);
-          setN(Math.round(to * eased));
-          if (t < 1) requestAnimationFrame(tick);
-        };
-        requestAnimationFrame(tick);
-        obs.disconnect();
-      }
-    }, { threshold: 0.4 });
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, [to, duration]);
-  return <span ref={ref}>{n}{suffix}</span>;
-}
-
-// ─── L3C · Rotating glyph separator ───────────────────────────────────────────
-function RotatingSep() {
-  const glyphs = ["·", "/", "+"];
-  const [i, setI] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => setI((v) => (v + 1) % glyphs.length), 2200);
-    return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  return (
-    <span style={{ display: "inline-block", color: "#52b788", margin: "0 10px", minWidth: 10, textAlign: "center" }}>
-      <span key={i} style={{ display: "inline-block", animation: "fadeUpFrag 0.5s ease both" }}>{glyphs[i]}</span>
-      <style jsx>{`
-        @keyframes fadeUpFrag {
-          0%   { opacity: 0; transform: translateY(4px); }
-          100% { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
-    </span>
-  );
-}
-
-// ─── Main HeroSection ─────────────────────────────────────────────────────────
 export default function HeroSection() {
-  const reduceMotion = useReducedMotion() ?? false;
+  const reducedMotion = useReducedMotion() ?? false;
+  const [activeLaneIndex, setActiveLaneIndex] = useState(0);
+  const activeLane = BUILD_LANES[activeLaneIndex];
 
-  // Shared seam X (in section coordinates) for particle pull
-  const seamXRef = useRef<number>(-9999);
-  const onSeamX = useCallback((x: number | null) => {
-    seamXRef.current = x ?? -9999;
-  }, []);
+  const scrollToWork = (event: MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    const target = document.getElementById("work");
+    if (!target) return;
 
-  const scrollToWork = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    e.preventDefault();
-    document.getElementById("work")?.scrollIntoView({ behavior: "smooth" });
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.history.replaceState(null, "", "#work");
   };
 
   return (
-    <section
-      style={{
-        position: "relative",
-        width: "100%",
-        minHeight: "100svh",
-        overflow: "hidden",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "100px 24px 80px",
-        fontFamily: "var(--font-inter), Inter, sans-serif",
-        background: "#06090e",
-      }}
-    >
-      {/* L0 — ambient mesh */}
-      <AmbientMesh />
+    <section className="hero-atelier" aria-label="Naeem Sabir portfolio introduction">
+      <div className="hero-grid-sheen" aria-hidden="true" />
+      <div className="hero-light-ribbon" aria-hidden="true" />
 
-      {/* L1 — particles */}
-      {!reduceMotion && <ParticleCanvas dividerXRef={seamXRef} />}
-
-      {/* Vignette + grid overlays (decorative) */}
-      <div aria-hidden style={{
-        position: "absolute", inset: 0, zIndex: 2, pointerEvents: "none",
-        background: "radial-gradient(ellipse 65% 60% at 50% 50%, transparent 0%, rgba(6,9,14,0.55) 100%)",
-      }} />
-      <div aria-hidden style={{
-        position: "absolute", inset: 0, zIndex: 2, pointerEvents: "none",
-        backgroundImage:
-          "linear-gradient(rgba(255,255,255,0.012) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.012) 1px,transparent 1px)",
-        backgroundSize: "80px 80px",
-        maskImage: "radial-gradient(ellipse 85% 85% at 50% 50%,black 30%,transparent 100%)",
-        WebkitMaskImage: "radial-gradient(ellipse 85% 85% at 50% 50%,black 30%,transparent 100%)",
-      }} />
-
-      {/* Content */}
-      <div style={{
-        position: "relative", zIndex: 3,
-        width: "100%", maxWidth: 1000,
-        display: "flex", flexDirection: "column",
-        gap: 44, alignItems: "stretch",
-      }}>
-        {/* L2 — Slider */}
+      <div className="hero-shell">
         <motion.div
-          initial={reduceMotion ? {} : { opacity: 0, scale: 0.97, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{ duration: 0.85, delay: 0.55, ease: [0.16, 1, 0.3, 1] }}
+          className="hero-copy"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
         >
-          <BeforeAfterSlider reduceMotion={reduceMotion} onSeamX={onSeamX} />
+          <div className="hero-kicker">
+            <span className="hero-live-dot" aria-hidden="true" />
+            <span>Naeem Sabir - AI, web, mobile</span>
+          </div>
+
+          <h1>I build digital products that feel alive.</h1>
+
+          <p className="hero-lede">
+            AI workflows, websites, and Android apps shaped into fast, useful software
+            that feels launch-ready from day one.
+          </p>
+
+          <div className="hero-actions" aria-label="Primary actions">
+            <a className="hero-primary" href="#work" onClick={scrollToWork}>
+              See the work
+              <span aria-hidden="true">+</span>
+            </a>
+            <Link className="hero-secondary" href="/quote">
+              Start a project
+            </Link>
+          </div>
+
+          <div className="hero-lane-tabs" role="tablist" aria-label="What Naeem builds">
+            {BUILD_LANES.map((lane, index) => (
+              <button
+                key={lane.id}
+                type="button"
+                role="tab"
+                aria-selected={activeLaneIndex === index}
+                className={activeLaneIndex === index ? "is-active" : ""}
+                onClick={() => setActiveLaneIndex(index)}
+                style={{ "--lane": lane.accent } as CSSProperties}
+              >
+                <span>{lane.label}</span>
+                <small>{lane.short}</small>
+              </button>
+            ))}
+          </div>
         </motion.div>
 
-        {/* L3 — Foreground */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-          {/* Eyebrow */}
-          <motion.div
-            initial={reduceMotion ? {} : { opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.55, delay: 0.30 }}
-            style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 22, flexWrap: "wrap" }}
-          >
-            <span aria-hidden style={{ fontSize: 14, lineHeight: 1 }}>🇵🇰</span>
-            <span style={{ position: "relative", display: "inline-flex", width: 8, height: 8, flexShrink: 0 }}>
-              <span style={{
-                position: "absolute", inset: 0, borderRadius: "50%",
-                background: "#52b788", opacity: 0.5,
-                animation: reduceMotion ? "none" : "presenceRipple 1.8s ease-out infinite",
-              }} />
-              <span style={{
-                position: "relative", width: 8, height: 8, borderRadius: "50%",
-                background: "#52b788", boxShadow: "0 0 8px rgba(82,183,136,0.7)",
-              }} />
-            </span>
-            <span style={{
-              fontFamily: "var(--font-mono), monospace",
-              fontSize: 11, fontWeight: 500,
-              color: "rgba(255,255,255,0.42)",
-              letterSpacing: "0.16em", textTransform: "uppercase",
-            }}>
-              Naeem Sabir
-              <span style={{ color: "rgba(255,255,255,0.22)", margin: "0 8px" }}>—</span>
-              Full-Stack &amp; AI Developer
-            </span>
-            <span aria-hidden style={{
-              width: 2, height: 14, background: "rgba(82,183,136,0.7)",
-              borderRadius: 1, display: "inline-block", flexShrink: 0,
-              animation: reduceMotion ? "none" : "heroCursorBlink 1.1s step-end infinite",
-            }} />
-          </motion.div>
+        <motion.div
+          className="hero-visual"
+          initial={{ opacity: 0, y: 22 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.72, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
+          style={{ "--lane": activeLane.accent } as CSSProperties}
+        >
+          <CraftCoreScene activeLane={activeLane} reducedMotion={reducedMotion} />
 
-          {/* L3B — Kinetic headline */}
-          <KineticHeadline />
+          <div className={`hero-scene-labels is-${activeLane.visualKind}`} aria-live="polite">
+            <span className="hero-scene-label hero-scene-label-metric">{activeLane.metric}</span>
+            <span className="hero-scene-label hero-scene-label-title">{activeLane.label}</span>
+            <span className="hero-scene-label hero-scene-label-proof">{activeLane.short}</span>
+          </div>
 
-          {/* L3C — Subline */}
-          <motion.p
-            initial={reduceMotion ? {} : { opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.55, delay: 0.85 }}
-            style={{
-              margin: "20px 0 0", fontSize: 16, fontWeight: 400,
-              lineHeight: 1.7, color: "rgba(255,255,255,0.50)",
-              fontFamily: "var(--font-inter), Inter, sans-serif",
-            }}
-          >
-            Full-Stack Engineer
-            <RotatingSep />
-            AI Integrations
-            <RotatingSep />
-            Mobile Apps
-          </motion.p>
-
-          {/* L3D — CTAs + L3E — Stat ribbon */}
-          <motion.div
-            initial={reduceMotion ? {} : { opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 1.0 }}
-            className="hero-bottom-row"
-            style={{
-              display: "flex", alignItems: "center",
-              gap: 20, flexWrap: "wrap", marginTop: 32,
-            }}
-          >
-            <MagneticBtn
-              href="#work"
-              onClick={scrollToWork}
-              className="hero-btn-primary"
-              style={{
-                position: "relative", overflow: "hidden",
-                display: "inline-flex", alignItems: "center", gap: 8,
-                background: "#2d6a4f", color: "#ffffff",
-                fontSize: 14, fontWeight: 600,
-                padding: "14px 28px", borderRadius: 100,
-                textDecoration: "none",
-                boxShadow: "0 4px 24px rgba(45,106,79,0.40)",
-                whiteSpace: "nowrap", flexShrink: 0,
-                fontFamily: "var(--font-inter), Inter, sans-serif",
-                letterSpacing: "-0.01em",
-              }}
-            >
-              <span style={{ position: "relative", zIndex: 1 }}>View My Work</span>
-              <span style={{ position: "relative", zIndex: 1, display: "inline-flex" }}><ArrowIcon /></span>
-              <span aria-hidden className="hero-sheen" />
-            </MagneticBtn>
-
-            <MagneticBtn
-              href="/Naeem_Sabir_Software_Engineer_Resume.pdf"
-              download="Naeem_Sabir_Resume.pdf"
-              className="hero-btn-ghost"
-              style={{
-                display: "inline-flex", alignItems: "center", gap: 8,
-                background: "rgba(255,255,255,0.05)",
-                border: "1px solid rgba(255,255,255,0.13)",
-                color: "rgba(255,255,255,0.78)",
-                fontSize: 14, fontWeight: 500,
-                padding: "14px 26px", borderRadius: 100,
-                textDecoration: "none",
-                whiteSpace: "nowrap", flexShrink: 0,
-                fontFamily: "var(--font-inter), Inter, sans-serif",
-                letterSpacing: "-0.01em",
-              }}
-            >
-              <span className="hero-dl-icon" style={{ display: "inline-flex", transition: "transform 0.4s cubic-bezier(0.16,1,0.3,1)" }}>
-                <DlIcon />
-              </span>
-              Download CV
-            </MagneticBtn>
-
-            {/* Vertical divider */}
-            <div className="hero-divider-v" style={{ width: 1, height: 36, background: "rgba(255,255,255,0.10)", flexShrink: 0 }} />
-
-            {/* Stat ribbon */}
-            <div style={{ display: "flex", gap: 24, flexShrink: 0 }}>
-              {[
-                { v: 30, suffix: "+", label: "Projects shipped" },
-                { v: 12, suffix: "",  label: "AI integrations" },
-                { v: 6,  suffix: "yr", label: "In production" },
-              ].map((s) => (
-                <div key={s.label} style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
-                  <span style={{
-                    fontSize: 22, fontWeight: 800, color: "#ffffff",
-                    letterSpacing: "-0.03em", lineHeight: 1,
-                    fontFamily: "var(--font-display), sans-serif",
-                  }}>
-                    <Counter to={s.v} suffix={s.suffix} />
-                  </span>
-                  <span style={{ fontSize: 11, color: "rgba(255,255,255,0.40)", fontWeight: 500, marginTop: 4, fontFamily: "var(--font-inter), Inter, sans-serif" }}>
-                    {s.label}
-                  </span>
-                </div>
-              ))}
+          <div className="hero-identity-card">
+            <Image src="/my-image.webp" alt="Naeem Sabir" width={52} height={52} priority />
+            <div>
+              <strong>Naeem Sabir</strong>
+              <span>Product builder</span>
             </div>
-          </motion.div>
-        </div>
+          </div>
+        </motion.div>
       </div>
 
-      {/* Local style tweaks */}
-      <style jsx global>{`
-        .hero-btn-primary:hover  { background: #40916c !important; box-shadow: 0 8px 32px rgba(45,106,79,0.50) !important; }
-        .hero-btn-ghost:hover    { background: rgba(255,255,255,0.10) !important; border-color: rgba(255,255,255,0.28) !important; color: #ffffff !important; }
-        .hero-btn-ghost:hover .hero-dl-icon { transform: translateY(2px); }
+      <div className="hero-proof-line" aria-label="Portfolio proof points">
+        <span>30+ shipped builds</span>
+        <span>AI plus web plus mobile</span>
+        <span>Production-first delivery</span>
+      </div>
 
-        .hero-btn-primary .hero-sheen {
-          position: absolute; inset: -1px;
-          background: conic-gradient(from 0deg at 50% 50%, transparent 0deg, rgba(255,255,255,0.18) 30deg, transparent 60deg, transparent 360deg);
-          animation: heroSheen 8s linear infinite;
-          mix-blend-mode: screen;
-          opacity: 0.5;
+      <style jsx global>{`
+        .hero-atelier {
+          position: relative;
+          box-sizing: border-box;
+          min-height: calc(100svh - 32px);
+          overflow: hidden;
+          display: flex;
+          align-items: center;
+          background:
+            linear-gradient(180deg, rgba(251, 255, 251, 0.98) 0%, #ffffff 54%, #f4faf6 100%),
+            linear-gradient(120deg, rgba(31, 122, 92, 0.09), rgba(37, 99, 235, 0.045), rgba(217, 119, 6, 0.035));
+          color: #10231c;
+          padding: 104px 24px 60px;
+          font-family: var(--font-inter), Inter, sans-serif;
+        }
+
+        .hero-grid-sheen {
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          background-image:
+            linear-gradient(rgba(31, 122, 92, 0.052) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(31, 122, 92, 0.046) 1px, transparent 1px);
+          background-size: 58px 58px;
+          mask-image: linear-gradient(to bottom, transparent, black 18%, black 72%, transparent);
+          -webkit-mask-image: linear-gradient(to bottom, transparent, black 18%, black 72%, transparent);
+          opacity: 0.76;
+        }
+
+        .hero-light-ribbon {
+          position: absolute;
+          inset: -22% -12% auto;
+          height: 62%;
+          pointer-events: none;
+          background:
+            linear-gradient(108deg, transparent 7%, rgba(255, 255, 255, 0.78) 34%, transparent 58%),
+            linear-gradient(98deg, transparent 20%, rgba(82, 183, 136, 0.14) 48%, transparent 74%);
+          transform: rotate(-5deg);
+          filter: blur(2px);
+          opacity: 0.84;
+        }
+
+        .hero-shell {
+          position: relative;
+          z-index: 2;
+          width: min(1180px, 100%);
+          margin: 0 auto;
+          display: grid;
+          grid-template-columns: minmax(0, 0.9fr) minmax(430px, 1.1fr);
+          gap: 42px;
+          align-items: center;
+        }
+
+        .hero-copy {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .hero-kicker {
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          min-height: 34px;
+          padding: 8px 12px;
+          border: 1px solid rgba(31, 122, 92, 0.14);
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.66);
+          color: #1f5f49;
+          backdrop-filter: blur(18px) saturate(160%);
+          -webkit-backdrop-filter: blur(18px) saturate(160%);
+          font-size: 12px;
+          font-weight: 800;
+        }
+
+        .hero-live-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 999px;
+          background: #1f7a5c;
+          box-shadow: 0 0 0 6px rgba(31, 122, 92, 0.12);
+          flex: 0 0 auto;
+        }
+
+        .hero-copy h1 {
+          margin: 26px 0 0;
+          max-width: 690px;
+          font-family: var(--font-display), Plus Jakarta Sans, sans-serif;
+          font-size: clamp(54px, 6.1vw, 78px);
+          line-height: 0.94;
+          letter-spacing: 0;
+          color: #10231c;
+          font-weight: 850;
+          text-wrap: balance;
+        }
+
+        .hero-lede {
+          margin: 18px 0 0;
+          max-width: 560px;
+          color: #50645b;
+          font-size: 17px;
+          line-height: 1.58;
+        }
+
+        .hero-actions {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 12px;
+          margin-top: 28px;
+        }
+
+        .hero-primary,
+        .hero-secondary {
+          min-height: 48px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          border-radius: 999px;
+          padding: 13px 20px;
+          text-decoration: none;
+          font-size: 15px;
+          font-weight: 850;
+          transition: transform 0.22s ease, background 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
+        }
+
+        .hero-primary {
+          background: #163f32;
+          color: #ffffff;
+          box-shadow: 0 18px 42px rgba(22, 63, 50, 0.22);
+        }
+
+        .hero-primary span {
+          display: inline-grid;
+          place-items: center;
+          width: 21px;
+          height: 21px;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.16);
+        }
+
+        .hero-secondary {
+          color: #163f32;
+          background: rgba(255, 255, 255, 0.7);
+          border: 1px solid rgba(31, 122, 92, 0.17);
+          backdrop-filter: blur(18px) saturate(160%);
+          -webkit-backdrop-filter: blur(18px) saturate(160%);
+        }
+
+        .hero-primary:hover,
+        .hero-secondary:hover {
+          transform: translateY(-2px);
+        }
+
+        .hero-lane-tabs {
+          width: min(620px, 100%);
+          margin-top: 26px;
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 8px;
+        }
+
+        .hero-lane-tabs button {
+          position: relative;
+          min-height: 74px;
+          border: 1px solid rgba(16, 35, 28, 0.1);
+          border-radius: 8px;
+          background: rgba(255, 255, 255, 0.62);
+          color: #52645c;
+          padding: 14px;
+          text-align: left;
+          cursor: pointer;
+          overflow: hidden;
+          backdrop-filter: blur(18px) saturate(150%);
+          -webkit-backdrop-filter: blur(18px) saturate(150%);
+          transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .hero-lane-tabs button:before {
+          content: "";
+          position: absolute;
+          left: 14px;
+          right: 14px;
+          top: 0;
+          height: 3px;
+          border-radius: 0 0 999px 999px;
+          background: var(--lane);
+          opacity: 0.18;
+          transition: opacity 0.2s ease;
+        }
+
+        .hero-lane-tabs button:hover,
+        .hero-lane-tabs button.is-active {
+          transform: translateY(-2px);
+          border-color: color-mix(in srgb, var(--lane) 35%, rgba(16, 35, 28, 0.1));
+          background: rgba(255, 255, 255, 0.82);
+          box-shadow: 0 18px 38px rgba(16, 35, 28, 0.08);
+        }
+
+        .hero-lane-tabs button.is-active:before {
+          opacity: 1;
+        }
+
+        .hero-lane-tabs span,
+        .hero-lane-tabs small {
+          position: relative;
+          z-index: 1;
+          display: block;
+        }
+
+        .hero-lane-tabs span {
+          color: #10231c;
+          font-size: 14px;
+          line-height: 1.25;
+          font-weight: 850;
+        }
+
+        .hero-lane-tabs small {
+          margin-top: 6px;
+          color: #64746d;
+          font-size: 11px;
+          line-height: 1.35;
+          font-weight: 700;
+        }
+
+        .hero-visual {
+          position: relative;
+          min-height: 510px;
+          display: grid;
+          place-items: center;
+          isolation: isolate;
+        }
+
+        .hero-core-stage {
+          position: absolute;
+          inset: 0;
+          min-height: 460px;
+          overflow: visible;
+          cursor: grab;
+        }
+
+        .hero-core-stage:active {
+          cursor: grabbing;
+        }
+
+        .hero-core-canvas {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          display: block;
+          z-index: 2;
+        }
+
+        .hero-core-fallback {
+          position: absolute;
+          inset: 9% 2% 3%;
+          z-index: 1;
+          border-radius: 999px;
+          background:
+            repeating-radial-gradient(circle at 50% 50%, rgba(31, 122, 92, 0.14) 0 1px, transparent 1px 38px),
+            conic-gradient(from 120deg, rgba(31, 122, 92, 0.14), rgba(37, 99, 235, 0.11), rgba(217, 119, 6, 0.08), rgba(31, 122, 92, 0.14));
+          filter: blur(0.2px);
+          mask-image: radial-gradient(circle, black 0%, black 54%, transparent 72%);
+          -webkit-mask-image: radial-gradient(circle, black 0%, black 54%, transparent 72%);
+          opacity: 0.78;
+        }
+
+        .hero-identity-card,
+        .hero-scene-label {
+          position: absolute;
+          z-index: 4;
+          border: 1px solid rgba(16, 35, 28, 0.1);
+          background: rgba(255, 255, 255, 0.74);
+          box-shadow: 0 18px 42px rgba(16, 35, 28, 0.1);
+          backdrop-filter: blur(22px) saturate(160%);
+          -webkit-backdrop-filter: blur(22px) saturate(160%);
+        }
+
+        .hero-scene-labels {
+          position: absolute;
+          inset: 0;
+          z-index: 4;
           pointer-events: none;
         }
-        @keyframes heroSheen { to { transform: rotate(1turn); } }
 
-        @media (prefers-reduced-motion: reduce) {
-          .hero-btn-primary .hero-sheen { animation: none !important; opacity: 0 !important; }
+        .hero-scene-label {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          max-width: min(260px, 58%);
+          border-radius: 999px;
+          padding: 9px 12px;
+          color: #10231c;
+          line-height: 1;
+          white-space: nowrap;
+          transform-origin: center;
+          transition:
+            left 0.36s ease,
+            right 0.36s ease,
+            top 0.36s ease,
+            bottom 0.36s ease,
+            transform 0.36s ease,
+            border-color 0.24s ease,
+            color 0.24s ease;
         }
 
-        @media (max-width: 720px) {
-          .hero-divider-v { display: none !important; }
-          .hero-bottom-row { gap: 14px !important; }
+        .hero-scene-label:before {
+          content: "";
+          width: 7px;
+          height: 7px;
+          border-radius: 999px;
+          flex: 0 0 auto;
+          background: var(--lane);
+          box-shadow: 0 0 0 6px color-mix(in srgb, var(--lane) 14%, transparent);
+        }
+
+        .hero-scene-label-metric {
+          color: var(--lane);
+          font-size: 12px;
+          font-weight: 950;
+          letter-spacing: 0;
+          box-shadow: 0 16px 36px rgba(16, 35, 28, 0.1);
+        }
+
+        .hero-scene-label-title {
+          border-radius: 8px;
+          padding: 11px 14px;
+          font-family: var(--font-display), Plus Jakarta Sans, sans-serif;
+          font-size: 20px;
+          font-weight: 850;
+          box-shadow: 0 22px 48px rgba(16, 35, 28, 0.12);
+        }
+
+        .hero-scene-label-proof {
+          padding: 8px 11px;
+          color: #52645c;
+          font-size: 11px;
+          font-weight: 850;
+          background: rgba(255, 255, 255, 0.6);
+        }
+
+        .hero-scene-labels.is-ai .hero-scene-label-metric {
+          left: 15%;
+          top: 25%;
+          transform: rotate(-7deg);
+        }
+
+        .hero-scene-labels.is-ai .hero-scene-label-title {
+          right: 18%;
+          top: 48%;
+          transform: rotate(3deg);
+        }
+
+        .hero-scene-labels.is-ai .hero-scene-label-proof {
+          left: 37%;
+          bottom: 18%;
+          transform: rotate(-2deg);
+        }
+
+        .hero-scene-labels.is-web .hero-scene-label-metric {
+          left: 20%;
+          top: 28%;
+          transform: rotate(-2deg);
+        }
+
+        .hero-scene-labels.is-web .hero-scene-label-title {
+          right: 14%;
+          top: 38%;
+          transform: rotate(4deg);
+        }
+
+        .hero-scene-labels.is-web .hero-scene-label-proof {
+          right: 24%;
+          bottom: 24%;
+          transform: rotate(-4deg);
+        }
+
+        .hero-scene-labels.is-mobile .hero-scene-label-metric {
+          left: 24%;
+          top: 18%;
+          transform: rotate(-4deg);
+        }
+
+        .hero-scene-labels.is-mobile .hero-scene-label-title {
+          right: 22%;
+          top: 44%;
+          transform: rotate(5deg);
+        }
+
+        .hero-scene-labels.is-mobile .hero-scene-label-proof {
+          left: 24%;
+          bottom: 22%;
+          transform: rotate(-5deg);
+        }
+
+        .hero-identity-card {
+          right: 16px;
+          top: 32px;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          border-radius: 8px;
+          padding: 10px 12px;
+        }
+
+        .hero-identity-card img {
+          width: 52px;
+          height: 52px;
+          border-radius: 8px;
+          object-fit: cover;
+          border: 1px solid rgba(31, 122, 92, 0.18);
+        }
+
+        .hero-identity-card strong,
+        .hero-identity-card span {
+          display: block;
+          white-space: nowrap;
+        }
+
+        .hero-identity-card strong {
+          color: #10231c;
+          font-size: 14px;
+          line-height: 1;
+        }
+
+        .hero-identity-card span {
+          margin-top: 5px;
+          color: #63736b;
+          font-size: 12px;
+          font-weight: 700;
+        }
+
+        .hero-proof-line {
+          position: absolute;
+          z-index: 3;
+          left: 50%;
+          bottom: 22px;
+          transform: translateX(-50%);
+          width: min(860px, calc(100% - 48px));
+          display: flex;
+          justify-content: center;
+          gap: 9px;
+          flex-wrap: wrap;
+          color: #66786f;
+          font-size: 12px;
+          font-weight: 850;
+          pointer-events: none;
+        }
+
+        .hero-proof-line span {
+          display: inline-flex;
+          min-height: 34px;
+          align-items: center;
+          gap: 8px;
+          border-radius: 999px;
+          padding: 8px 14px;
+          border: 1px solid rgba(31, 122, 92, 0.13);
+          background: rgba(255, 255, 255, 0.68);
+          box-shadow: 0 14px 32px rgba(16, 35, 28, 0.08);
+          backdrop-filter: blur(18px) saturate(160%);
+          -webkit-backdrop-filter: blur(18px) saturate(160%);
+        }
+
+        .hero-proof-line span:before {
+          content: "";
+          width: 6px;
+          height: 6px;
+          border-radius: 999px;
+          background: rgba(31, 122, 92, 0.72);
+        }
+
+        @media (max-width: 1040px) {
+          .hero-atelier {
+            padding-top: 96px;
+            align-items: flex-start;
+          }
+
+          .hero-shell {
+            grid-template-columns: 1fr;
+            gap: 24px;
+          }
+
+          .hero-copy h1,
+          .hero-lede {
+            max-width: 760px;
+          }
+
+          .hero-visual {
+            min-height: 420px;
+          }
+
+          .hero-core-stage {
+            min-height: 390px;
+          }
+        }
+
+        @media (max-height: 760px) and (min-width: 900px) {
+          .hero-atelier {
+            padding: 84px 24px 42px;
+          }
+
+          .hero-copy h1 {
+            margin-top: 20px;
+            font-size: clamp(48px, 5.4vw, 68px);
+          }
+
+          .hero-lede {
+            margin-top: 14px;
+            max-width: 520px;
+            font-size: 16px;
+            line-height: 1.5;
+          }
+
+          .hero-actions {
+            margin-top: 22px;
+          }
+
+          .hero-primary,
+          .hero-secondary {
+            min-height: 44px;
+            padding: 11px 17px;
+          }
+
+          .hero-lane-tabs {
+            margin-top: 18px;
+          }
+
+          .hero-lane-tabs button {
+            min-height: 60px;
+            padding: 12px;
+          }
+
+          .hero-visual {
+            min-height: 440px;
+          }
+
+          .hero-core-stage {
+            min-height: 405px;
+          }
+
+          .hero-scene-label-title {
+            font-size: 17px;
+            padding: 10px 12px;
+          }
+
+          .hero-scene-label-metric,
+          .hero-scene-label-proof {
+            font-size: 10px;
+          }
+
+          .hero-identity-card {
+            top: 18px;
+          }
+        }
+
+        @media (max-width: 640px) {
+          .hero-atelier {
+            min-height: calc(100svh - 28px);
+            padding: 72px 16px 54px;
+          }
+
+          .hero-shell {
+            gap: 12px;
+          }
+
+          .hero-kicker {
+            min-height: 32px;
+            font-size: 11px;
+            padding: 7px 10px;
+          }
+
+          .hero-copy h1 {
+            margin-top: 16px;
+            font-size: 36px;
+            line-height: 0.98;
+          }
+
+          .hero-lede {
+            margin-top: 12px;
+            font-size: 14px;
+            line-height: 1.45;
+          }
+
+          .hero-actions {
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 18px;
+          }
+
+          .hero-primary,
+          .hero-secondary {
+            min-height: 44px;
+            padding: 10px 12px;
+            font-size: 13px;
+          }
+
+          .hero-lane-tabs {
+            margin-top: 14px;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 6px;
+          }
+
+          .hero-lane-tabs button {
+            min-height: 44px;
+            padding: 10px 7px;
+            text-align: center;
+          }
+
+          .hero-lane-tabs span {
+            font-size: 10px;
+          }
+
+          .hero-lane-tabs small {
+            display: none;
+          }
+
+          .hero-visual {
+            min-height: 250px;
+            margin-top: 0;
+          }
+
+          .hero-core-stage {
+            min-height: 240px;
+          }
+
+          .hero-scene-label {
+            max-width: 72%;
+            padding: 7px 9px;
+            gap: 6px;
+          }
+
+          .hero-scene-label:before {
+            width: 5px;
+            height: 5px;
+            box-shadow: 0 0 0 4px color-mix(in srgb, var(--lane) 12%, transparent);
+          }
+
+          .hero-scene-label-title {
+            font-size: 14px;
+            padding: 8px 10px;
+          }
+
+          .hero-scene-label-metric,
+          .hero-scene-label-proof {
+            font-size: 9px;
+          }
+
+          .hero-scene-labels.is-ai .hero-scene-label-metric,
+          .hero-scene-labels.is-web .hero-scene-label-metric {
+            left: 3%;
+            top: 20%;
+          }
+
+          .hero-scene-labels.is-ai .hero-scene-label-title,
+          .hero-scene-labels.is-web .hero-scene-label-title,
+          .hero-scene-labels.is-mobile .hero-scene-label-title {
+            right: 3%;
+            top: 42%;
+          }
+
+          .hero-scene-labels.is-ai .hero-scene-label-proof,
+          .hero-scene-labels.is-web .hero-scene-label-proof,
+          .hero-scene-labels.is-mobile .hero-scene-label-proof {
+            left: 10%;
+            bottom: 17%;
+          }
+
+          .hero-scene-labels.is-mobile .hero-scene-label-metric {
+            left: 9%;
+            top: 18%;
+          }
+
+          .hero-identity-card {
+            display: none;
+          }
+
+          .hero-identity-card img {
+            width: 42px;
+            height: 42px;
+          }
+
+          .hero-identity-card strong {
+            font-size: 12px;
+          }
+
+          .hero-identity-card span {
+            font-size: 10px;
+          }
+
+          .hero-proof-line {
+            bottom: 12px;
+            width: calc(100% - 32px);
+            flex-wrap: nowrap;
+            gap: 0;
+            font-size: 10px;
+          }
+
+          .hero-proof-line span {
+            display: none;
+          }
+
+          .hero-proof-line span:first-child {
+            display: inline-flex;
+            width: 100%;
+            min-height: 32px;
+            justify-content: center;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            padding: 8px 11px;
+          }
+
+          .hero-proof-line span:first-child:after {
+            content: " / AI + web + mobile";
+            color: #72827a;
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .hero-primary,
+          .hero-secondary,
+          .hero-lane-tabs button {
+            transition: none !important;
+          }
         }
       `}</style>
     </section>

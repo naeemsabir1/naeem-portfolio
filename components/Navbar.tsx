@@ -3,30 +3,30 @@
 import { motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import PresenceChip from "@/components/hero/PresenceChip";
 import AudioToggle from "@/components/hero/AudioToggle";
 import { sounds } from "@/lib/audio";
 
 const LINKS = [
-  { id: "about", label: "About" },
-  { id: "work",  label: "Work"  },
-  { id: "stack", label: "Stack" },
+  { id: "stack", label: "Skills" },
+  { id: "work", label: "Work" },
 ];
 
 export default function Navbar() {
+  const pathname = usePathname();
+  const router = useRouter();
   const [scrolled, setScrolled] = useState(false);
-  const [overDark, setOverDark] = useState(true);
   const [progress, setProgress] = useState(0);
-  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const linkRefs = useRef<Array<HTMLAnchorElement | null>>([]);
   const [pill, setPill] = useState<{ x: number; w: number } | null>(null);
+  const isHome = pathname === "/";
 
   useEffect(() => {
     const fn = () => {
       const y = window.scrollY;
       const max = (document.documentElement.scrollHeight - window.innerHeight) || 1;
       setScrolled(y > 80);
-      setOverDark(y < window.innerHeight * 0.7);
       setProgress(Math.min(1, Math.max(0, y / max)));
     };
     fn();
@@ -34,32 +34,47 @@ export default function Navbar() {
     return () => window.removeEventListener("scroll", fn);
   }, []);
 
-  useEffect(() => {
-    if (hoverIdx === null) { setPill(null); return; }
-    const el = linkRefs.current[hoverIdx];
+  const updatePill = (index: number) => {
+    const el = linkRefs.current[index];
     const parent = el?.parentElement;
     if (!el || !parent) { setPill(null); return; }
     const er = el.getBoundingClientRect();
     const pr = parent.getBoundingClientRect();
     setPill({ x: er.left - pr.left, w: er.width });
-  }, [hoverIdx]);
-
-  const scrollTo = (id: string) => (e: React.MouseEvent) => {
-    e.preventDefault();
-    sounds.click();
-    if (id === "__top") {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    } else {
-      document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
-    }
   };
 
-  const dark = overDark && !scrolled;
+  const handleHomeClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    sounds.click();
+
+    if (isHome) {
+      window.history.replaceState(null, "", "/");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    router.push("/");
+  };
+
+  const handleSectionClick = (id: string) => (event: React.MouseEvent<HTMLAnchorElement>) => {
+    sounds.click();
+    if (!isHome) return;
+
+    const target = document.getElementById(id);
+    if (!target) return;
+
+    event.preventDefault();
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.history.replaceState(null, "", `#${id}`);
+  };
+
+  const dark = false;
 
   return (
     <motion.nav
-      initial={{ y: -20, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
+      className="portfolio-nav"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
       transition={{ duration: 0.6, delay: 0.25 }}
       style={{
         position: "fixed", top: "20px", left: "50%",
@@ -93,12 +108,12 @@ export default function Navbar() {
         }}
       />
 
-      <div style={{ display: "flex", alignItems: "center", gap: 4, position: "relative" }}>
+      <div className="portfolio-nav-inner" style={{ display: "flex", alignItems: "center", gap: 4, position: "relative" }}>
         {/* Logo */}
-        <a
-          href="#"
+        <Link
+          href="/"
           data-cursor="click"
-          onClick={scrollTo("__top")}
+          onClick={handleHomeClick}
           onMouseEnter={() => sounds.hover()}
           style={{
             padding: "8px 16px", borderRadius: "100px",
@@ -113,17 +128,17 @@ export default function Navbar() {
         >
           <span className="nav-logo-n" style={{ display: "inline-block", transition: "transform 0.5s cubic-bezier(0.16,1,0.3,1)" }}>N</span>
           <span>aeem</span>
-        </a>
+        </Link>
 
-        <div style={{
+        <div className="nav-divider-primary" style={{
           width: 1, height: 16, margin: "0 4px",
           background: dark ? "rgba(255,255,255,0.18)" : "rgba(0,0,0,0.10)",
           transition: "background 0.4s ease",
         }} />
 
         {/* Links wrapper with magnetic pill */}
-        <div style={{ position: "relative", display: "flex", alignItems: "center" }}
-             onMouseLeave={() => setHoverIdx(null)}>
+        <div className="nav-links" style={{ position: "relative", display: "flex", alignItems: "center" }}
+             onMouseLeave={() => setPill(null)}>
           {/* Pill background */}
           <div
             aria-hidden
@@ -144,10 +159,10 @@ export default function Navbar() {
             <a
               key={l.id}
               ref={(el) => { linkRefs.current[i] = el; }}
-              href={`#${l.id}`}
+              href={`/#${l.id}`}
               data-cursor="click"
-              onClick={scrollTo(l.id)}
-              onMouseEnter={() => { setHoverIdx(i); sounds.hover(); }}
+              onClick={handleSectionClick(l.id)}
+              onMouseEnter={() => { updatePill(i); sounds.hover(); }}
               style={{
                 position: "relative", zIndex: 1,
                 padding: "8px 14px", borderRadius: 100,
@@ -164,7 +179,7 @@ export default function Navbar() {
           ))}
         </div>
 
-        <div style={{
+        <div className="nav-divider-secondary" style={{
           width: 1, height: 16, margin: "0 6px",
           background: dark ? "rgba(255,255,255,0.18)" : "rgba(0,0,0,0.10)",
           transition: "background 0.4s ease",
@@ -183,6 +198,7 @@ export default function Navbar() {
         <Link
           href="/quote"
           data-cursor="click"
+          onClick={() => sounds.click()}
           onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.background = "#40916c"; sounds.hover(); }}
           onMouseLeave={(e) => ((e.currentTarget as HTMLAnchorElement).style.background = "#2d6a4f")}
           style={{
@@ -204,6 +220,26 @@ export default function Navbar() {
         .nav-logo-n:hover { transform: rotate(360deg); }
         @media (max-width: 760px) {
           .nav-presence { display: none !important; }
+        }
+        @media (max-width: 640px) {
+          .portfolio-nav {
+            top: 12px !important;
+            max-width: calc(100vw - 24px) !important;
+            padding: 6px !important;
+          }
+          .portfolio-nav-inner {
+            flex-wrap: nowrap !important;
+          }
+          .portfolio-nav a {
+            display: inline-flex !important;
+          }
+          .portfolio-nav .nav-links,
+          .portfolio-nav .nav-divider-primary,
+          .portfolio-nav .nav-divider-secondary,
+          .portfolio-nav .nav-audio,
+          .portfolio-nav .nav-presence {
+            display: none !important;
+          }
         }
       `}</style>
     </motion.nav>

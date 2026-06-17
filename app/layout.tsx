@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Syne, JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import LenisProvider from "@/components/providers/LenisProvider";
+import Navbar from "@/components/Navbar";
 import ChatWidget from "@/components/chat/ChatWidget";
 import CustomCursor from "@/components/hero/CustomCursor";
 import "./globals.css";
@@ -31,7 +32,12 @@ const jetbrains = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "Naeem Sabir | Full-Stack & AI Developer",
   description:
-    "I bring dead projects to life — full-stack web, mobile, AI workflows and RAG systems shipped at startup speed. Portfolio of Naeem Sabir, Full-Stack & AI Developer based in Lahore, Pakistan.",
+    "Portfolio of Naeem Sabir, a Full-Stack and AI Developer building polished websites, AI workflows, and mobile apps for clients who need production-ready software.",
+  icons: {
+    icon: "/icon.svg",
+    shortcut: "/icon.svg",
+    apple: "/icon.svg",
+  },
   keywords: [
     "Naeem Sabir",
     "Full-Stack Developer",
@@ -53,6 +59,7 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${jakarta.variable} ${syne.variable} ${jetbrains.variable} antialiased font-sans`}
       >
+        <Navbar />
         <LenisProvider>{children}</LenisProvider>
         <CustomCursor />
         <ChatWidget />

@@ -1,6 +1,5 @@
 import dynamic from "next/dynamic";
 import HeroSection from "@/components/sections/HeroSection";
-import AboutSection from "@/components/sections/AboutSection";
 import StackSection from "@/components/sections/StackSection";
 
 const WorkSection = dynamic(
@@ -16,11 +15,10 @@ const ContactSection = dynamic(
 export default function Home() {
   return (
     <main style={{ backgroundColor: "#ffffff" }}>
-      {/* === Hero — Dark Cinematic === */}
+      {/* === Hero === */}
       <HeroSection />
 
       {/* === Content Sections === */}
-      <AboutSection />
       <StackSection />
       <WorkSection />
       <PlaygroundSection />

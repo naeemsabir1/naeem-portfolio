@@ -11,11 +11,12 @@ gsap.registerPlugin(ScrollTrigger);
 
 function CategoryIcon({ type, color }: { type: string, color: string }) {
     const t = type.toLowerCase();
+    const iconStyle = { color };
     
     // AI App
     if (t.includes("ai") || t.includes("voice")) {
         return (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={iconStyle}>
                 <path d="M12 2v20M17 5v14M22 10v4M7 5v14M2 10v4"/>
             </svg>
         );
@@ -23,7 +24,7 @@ function CategoryIcon({ type, color }: { type: string, color: string }) {
     // E-commerce
     if (t.includes("commerce") || t.includes("store")) {
         return (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={iconStyle}>
                 <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/>
                 <path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/>
             </svg>
@@ -32,7 +33,7 @@ function CategoryIcon({ type, color }: { type: string, color: string }) {
     // SaaS / Platform
     if (t.includes("saas") || t.includes("platform") || t.includes("generation")) {
         return (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={iconStyle}>
                 <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
                 <line x1="8" y1="21" x2="16" y2="21"/>
                 <line x1="12" y1="17" x2="12" y2="21"/>
@@ -42,7 +43,7 @@ function CategoryIcon({ type, color }: { type: string, color: string }) {
     
     // Default Web
     return (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={iconStyle}>
             <circle cx="12" cy="12" r="10"/>
             <line x1="2" y1="12" x2="22" y2="12"/>
             <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
@@ -396,7 +397,7 @@ function WebsiteCard({ project }: { project: Project }) {
                     backgroundColor: "transparent"
                 }} />
                 
-                <div className="preview-content">
+                <div className="preview-content" style={{ position: "absolute", inset: 0 }}>
                     {isVisible && iframeState === "loading" && project.useIframe !== false && hasLiveUrl && (
                         <div style={{
                             position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
@@ -510,7 +511,7 @@ export default function WorkSection() {
             }
 
             // Headers
-            gsap.utils.toArray('.section-anchor').forEach((el: any) => {
+            gsap.utils.toArray<HTMLElement>('.section-anchor').forEach((el) => {
                 gsap.fromTo(el, 
                     { x: -20, opacity: 0 }, 
                     { x: 0, opacity: 1, duration: 0.6, ease: "power2.out", scrollTrigger: { trigger: el, start: "top 90%", toggleActions: "play none none none" } }
@@ -518,7 +519,7 @@ export default function WorkSection() {
             });
 
             // Apps List
-            gsap.utils.toArray('.app-project-block').forEach((el: any) => {
+            gsap.utils.toArray<HTMLElement>('.app-project-block').forEach((el) => {
                 gsap.fromTo(el, 
                     { y: 60, opacity: 0 }, 
                     { y: 0, opacity: 1, duration: 0.8, ease: "power3.out", scrollTrigger: { trigger: el, start: "top 85%", toggleActions: "play none none none" } }
@@ -545,6 +546,7 @@ export default function WorkSection() {
 
     return (
         <section
+            id="work"
             ref={sectionRef}
             style={{
                 backgroundColor: "#ffffff",
